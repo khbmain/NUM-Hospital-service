@@ -1,0 +1,166 @@
+import { gql } from '@apollo/client';
+
+export const ME_QUERY = gql`
+  query Me {
+    me {
+      _id
+      firstname
+      lastname
+      email
+      phone
+      role
+      gender
+      profilePic
+      status
+    }
+  }
+`;
+
+export const MY_PATIENT_PROFILE = gql`
+  query MyPatientProfile {
+    getMyPatientProfile {
+      _id
+      registrationNumber
+      firstname
+      lastname
+      phone
+      email
+      gender
+      birthdate
+      category
+      bloodType
+      allergies
+      emergencyContact { name phone relationship }
+      address
+      notes
+      status
+    }
+  }
+`;
+
+export const MY_APPOINTMENTS = gql`
+  query MyAppointments($status: String, $page: Int, $limit: Int) {
+    getMyAppointments(status: $status, page: $page, limit: $limit) {
+      appointments {
+        _id
+        scheduledDate
+        scheduledTime
+        type
+        status
+        queueNumber
+        chiefComplaint
+        cancelReason
+        doctor {
+          _id
+          userId { firstname lastname }
+          specialization
+          department { name }
+        }
+        createdAt
+      }
+      total
+    }
+  }
+`;
+
+export const AVAILABLE_SLOTS = gql`
+  query AvailableSlots($doctorId: ID!, $date: Date!) {
+    getAvailableSlots(doctorId: $doctorId, date: $date)
+  }
+`;
+
+export const GET_DOCTORS = gql`
+  query GetDoctors($departmentId: ID) {
+    getDoctors(departmentId: $departmentId) {
+      _id
+      userId { firstname lastname }
+      specialization
+      department { _id name }
+      isAvailable
+    }
+  }
+`;
+
+export const LIST_DEPARTMENTS = gql`
+  query ListDepartments {
+    listDepartments {
+      _id
+      name
+      code
+      description
+    }
+  }
+`;
+
+export const MY_VISITS = gql`
+  query MyVisitHistory($page: Int, $limit: Int) {
+    getMyVisitHistory(page: $page, limit: $limit) {
+      _id
+      visitDate
+      status
+      chiefComplaint
+      assessment
+      doctor {
+        userId { firstname lastname }
+        specialization
+        department { name }
+      }
+      diagnoses { _id name type severity }
+      completedAt
+    }
+  }
+`;
+
+export const GET_VISIT = gql`
+  query GetVisit($id: ID!) {
+    getVisit(_id: $id) {
+      _id
+      visitDate
+      status
+      chiefComplaint
+      historyOfPresentIllness
+      physicalExamination
+      assessment
+      plan
+      notes
+      doctor {
+        userId { firstname lastname }
+        specialization
+        department { name }
+      }
+      vitalSigns {
+        temperature
+        bloodPressureSystolic
+        bloodPressureDiastolic
+        heartRate
+        respiratoryRate
+        oxygenSaturation
+        weight
+        height
+      }
+      diagnoses { _id name icdCode type severity notes }
+      prescriptions {
+        _id
+        prescriptionNumber
+        items { medicationName dosage frequency duration quantity unit instructions }
+        notes
+        status
+      }
+      completedAt
+    }
+  }
+`;
+
+export const MY_PRESCRIPTIONS = gql`
+  query MyPrescriptions($page: Int, $limit: Int) {
+    getMyPrescriptions(page: $page, limit: $limit) {
+      _id
+      prescriptionNumber
+      items { medicationName dosage frequency duration quantity unit }
+      notes
+      status
+      doctor { userId { firstname lastname } specialization }
+      createdAt
+    }
+  }
+`;
