@@ -91,7 +91,7 @@ export default function DashboardPage() {
         ) : (
           <div className="space-y-3">
             {appointments.map((appt: any) => (
-              <div key={appt._id} className="card flex items-center gap-4">
+              <Link key={appt._id} to={`/appointments/${appt._id}`} className="card flex items-center gap-4 hover:shadow-md transition-shadow">
                 <div className="w-12 h-12 rounded-xl bg-brand-50 flex flex-col items-center justify-center flex-shrink-0">
                   <span className="text-xs font-medium text-brand-700">
                     {new Date(appt.scheduledDate).toLocaleDateString('mn-MN', { month: 'short' })}
@@ -115,7 +115,7 @@ export default function DashboardPage() {
                     <p className="text-xs text-surface-400 mt-0.5 truncate">{appt.chiefComplaint}</p>
                   )}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

@@ -5,6 +5,17 @@ import { UserInputError } from "apollo-server-errors";
 import { generateRegistrationNumber } from "../utils/helper";
 import { logAudit } from "./auditService";
 
+function isProfileComplete(input: any) {
+  return Boolean(
+    input.registrationNumber &&
+    input.firstname &&
+    input.lastname &&
+    input.phone &&
+    input.gender &&
+    input.birthdate
+  );
+}
+
 // ─── Queries ───
 
 export async function searchPatients(
@@ -12,7 +23,7 @@ export async function searchPatients(
   { query, page = 1, limit = 20 }: { query: string; page?: number; limit?: number },
   ctx: ContextType
 ) {
-  requireRole("data_operator", "doctor", "nurse", "superadmin")(ctx);
+  requireRole("doctor", "nurse", "superadmin")(ctx);
 
   const trimmedQuery = query.trim();
   const filter = trimmedQuery
@@ -46,7 +57,7 @@ export async function getPatient(
   { _id }: { _id: string },
   ctx: ContextType
 ) {
-  requireRole("data_operator", "doctor", "nurse", "superadmin")(ctx);
+  requireRole("doctor", "nurse", "superadmin")(ctx);
   return Patient.findById(_id).populate("userId registeredBy");
 }
 
@@ -55,7 +66,7 @@ export async function getPatientByRegistration(
   { registrationNumber }: { registrationNumber: string },
   ctx: ContextType
 ) {
-  requireRole("data_operator", "doctor", "nurse", "superadmin")(ctx);
+  requireRole("doctor", "nurse", "superadmin")(ctx);
   return Patient.findOne({ registrationNumber }).populate("userId registeredBy");
 }
 
@@ -75,7 +86,7 @@ export async function createPatient(
   { input }: { input: any },
   ctx: ContextType
 ) {
-  requireRole("data_operator", "superadmin")(ctx);
+  requireRole("doctor", "superadmin")(ctx);
 
   // Generate unique registration number
   let registrationNumber = generateRegistrationNumber();
@@ -108,7 +119,7 @@ export async function updatePatient(
   { _id, input }: { _id: string; input: any },
   ctx: ContextType
 ) {
-  requireRole("data_operator", "superadmin")(ctx);
+  requireRole("doctor", "superadmin")(ctx);
 
   const patient = await Patient.findByIdAndUpdate(_id, input, { new: true })
     .populate("userId registeredBy");
@@ -125,4 +136,48 @@ export async function updatePatient(
   });
 
   return patient;
+}
+
+export async function upsertMyPatientProfile(
+  _: any,
+  { input }: { input: any },
+  ctx: ContextType
+) {
+  requireAuth(ctx);
+
+  const existingByRegistration = input.registrationNumber
+    ? await Patient.findOne({ registrationNumber: input.registrationNumber })
+    : null;
+  if (existingByRegistration && existingByRegistration.userId?.toString() !== ctx._id?.toString()) {
+    throw new UserInputError("Энэ регистрийн дугаартай өвчтөн бүртгэлтэй байна. Админтай холбогдоно уу.");
+  }
+
+  let patient = await Patient.findOne({ userId: ctx._id });
+  const payload = {
+    ...input,
+    userId: ctx._id,
+    category: input.category || "external",
+    profileCompletedAt: isProfileComplete(input) ? new Date() : undefined,
+  };
+
+  if (patient) {
+    Object.assign(patient, payload);
+  } else {
+    patient = new Patient({
+      ...payload,
+      registrationNumber: input.registrationNumber || generateRegistrationNumber(),
+      registeredBy: ctx._id,
+    });
+  }
+
+  await patient.save();
+  await logAudit({
+    userId: ctx._id,
+    action: "upsert",
+    resource: "patient_profile",
+    resourceId: patient._id!.toString(),
+    ctx,
+  });
+
+  return patient.populate("userId registeredBy");
 }

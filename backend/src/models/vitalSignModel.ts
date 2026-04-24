@@ -21,6 +21,9 @@ const VitalSignSchema = new mongoose.Schema(
     oxygenSaturation: { type: Number },
     weight: { type: Number },
     height: { type: Number },
+    painScore: { type: Number, min: 0, max: 10 },
+    bloodGlucose: { type: Number },
+    bmi: { type: Number },
     recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { collection: "vital_signs", timestamps: true }

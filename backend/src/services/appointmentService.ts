@@ -4,8 +4,8 @@ import { Staff } from "../models/staffModel";
 import { ContextType } from "../graphql/context";
 import { requireRole, requireAuth } from "../utils/auth";
 import { UserInputError } from "apollo-server-errors";
-import { GraphQLError } from "graphql";
 import { logAudit } from "./auditService";
+import { assertResourceAvailability } from "./schedulingService";
 
 const APPOINTMENT_POPULATE = [
   { path: "patientId" },
@@ -16,12 +16,26 @@ const APPOINTMENT_POPULATE = [
       { path: "departmentId" },
     ],
   },
+  {
+    path: "nurseId",
+    populate: [
+      { path: "userId" },
+      { path: "departmentId" },
+    ],
+  },
+  {
+    path: "assignedStaffId",
+    populate: [
+      { path: "userId" },
+      { path: "departmentId" },
+    ],
+  },
+  { path: "serviceId" },
+  { path: "resourceId" },
   { path: "departmentId" },
   { path: "checkedInBy" },
   { path: "createdBy" },
 ];
-
-// ─── Queries ───
 
 export async function getAppointment(
   _: any,
@@ -37,10 +51,12 @@ export async function listAppointments(
   { filter }: { filter: any },
   ctx: ContextType
 ) {
-  requireRole("data_operator", "doctor", "superadmin")(ctx);
+  requireRole("doctor", "superadmin")(ctx);
 
   const query: any = {};
   if (filter.doctorId) query.doctorId = filter.doctorId;
+  if (filter.serviceId) query.serviceId = filter.serviceId;
+  if (filter.resourceId) query.resourceId = filter.resourceId;
   if (filter.patientId) query.patientId = filter.patientId;
   if (filter.departmentId) query.departmentId = filter.departmentId;
   if (filter.status) query.status = filter.status;
@@ -73,7 +89,6 @@ export async function getMyAppointments(
 ) {
   requireAuth(ctx);
 
-  // Find patient by userId
   const patient = await Patient.findOne({ userId: ctx._id });
   if (!patient) throw new UserInputError("Өвчтөний бүртгэл олдсонгүй");
 
@@ -98,7 +113,7 @@ export async function getDoctorQueue(
   { doctorId, date }: { doctorId: string; date: Date },
   ctx: ContextType
 ) {
-  requireRole("doctor", "data_operator", "superadmin")(ctx);
+  requireRole("doctor", "superadmin")(ctx);
 
   const dayStart = new Date(date);
   dayStart.setHours(0, 0, 0, 0);
@@ -124,14 +139,12 @@ export async function getAvailableSlots(
   const staff = await Staff.findById(doctorId);
   if (!staff) throw new UserInputError("Эмч олдсонгүй");
 
-  // Generate all possible 30-min slots (09:00 - 17:00)
   const allSlots: string[] = [];
   for (let h = 9; h < 17; h++) {
     allSlots.push(`${h.toString().padStart(2, "0")}:00`);
     allSlots.push(`${h.toString().padStart(2, "0")}:30`);
   }
 
-  // Find existing appointments for that day
   const dayStart = new Date(date);
   dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(date);
@@ -147,8 +160,6 @@ export async function getAvailableSlots(
   return allSlots.filter((slot) => !takenSlots.has(slot));
 }
 
-// ─── Mutations ───
-
 export async function createAppointment(
   _: any,
   { input }: { input: any },
@@ -156,39 +167,57 @@ export async function createAppointment(
 ) {
   requireAuth(ctx);
 
-  // Validate patient exists
   const patient = await Patient.findById(input.patientId);
   if (!patient) throw new UserInputError("Өвчтөн олдсонгүй");
 
-  // Validate doctor exists and is available
-  const doctor = await Staff.findById(input.doctorId);
-  if (!doctor || doctor.staffType !== "doctor")
-    throw new UserInputError("Эмч олдсонгүй");
+  if (!patient.registrationNumber || !patient.firstname || !patient.lastname || !patient.phone || !patient.gender || !patient.birthdate) {
+    throw new UserInputError("Цаг авахын өмнө өвчтөний мэдээллээ бүрэн бөглөнө үү");
+  }
 
-  // Check slot availability
+  if (input.doctorId) {
+    const doctor = await Staff.findById(input.doctorId);
+    if (!doctor || doctor.staffType !== "doctor") {
+      throw new UserInputError("Эмч олдсонгүй");
+    }
+  }
+
+  const timing = await assertResourceAvailability(input);
+
   const dayStart = new Date(input.scheduledDate);
   dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(input.scheduledDate);
   dayEnd.setHours(23, 59, 59, 999);
 
-  const conflict = await Appointment.findOne({
-    doctorId: input.doctorId,
-    scheduledDate: { $gte: dayStart, $lte: dayEnd },
-    scheduledTime: input.scheduledTime,
-    status: { $nin: ["cancelled", "no_show"] },
-  });
-  if (conflict)
-    throw new UserInputError("Энэ цагт өөр захиалга бүртгэгдсэн байна");
+  if (!timing.resource && input.doctorId) {
+    const conflict = await Appointment.findOne({
+      doctorId: input.doctorId,
+      scheduledDate: { $gte: dayStart, $lte: dayEnd },
+      scheduledTime: input.scheduledTime,
+      status: { $nin: ["cancelled", "no_show"] },
+    });
+    if (conflict) {
+      throw new UserInputError("Энэ цагт өөр захиалга бүртгэгдсэн байна");
+    }
+  }
 
-  // Auto queue number
   const todayCount = await Appointment.countDocuments({
-    doctorId: input.doctorId,
+    ...(input.doctorId ? { doctorId: input.doctorId } : timing.resource ? { resourceId: timing.resource._id } : {}),
     scheduledDate: { $gte: dayStart, $lte: dayEnd },
     status: { $nin: ["cancelled", "no_show"] },
   });
 
   const appointment = new Appointment({
     ...input,
+    serviceId: input.serviceId || timing.service?._id,
+    resourceId: input.resourceId || timing.resource?._id,
+    scheduledDate: timing.scheduledDate,
+    scheduledStart: timing.scheduledStart,
+    scheduledEnd: timing.scheduledEnd,
+    blockedUntil: timing.blockedUntil,
+    duration: timing.durationMinutes,
+    durationMinutes: timing.durationMinutes,
+    bufferMinutes: timing.bufferMinutes,
+    appointmentKind: input.appointmentKind || timing.service?.category || input.type || "consultation",
     queueNumber: todayCount + 1,
     status: "scheduled",
     createdBy: ctx._id,
@@ -211,12 +240,13 @@ export async function checkInAppointment(
   { _id }: { _id: string },
   ctx: ContextType
 ) {
-  requireRole("data_operator", "superadmin")(ctx);
+  requireRole("superadmin")(ctx);
 
   const appointment = await Appointment.findById(_id);
   if (!appointment) throw new UserInputError("Цаг захиалга олдсонгүй");
-  if (appointment.status !== "scheduled")
+  if (appointment.status !== "scheduled") {
     throw new UserInputError("Зөвхөн 'scheduled' төлөвтэй цагийг check-in хийх боломжтой");
+  }
 
   appointment.status = "checked_in";
   appointment.checkedInAt = new Date();
@@ -235,8 +265,9 @@ export async function startAppointment(
 
   const appointment = await Appointment.findById(_id);
   if (!appointment) throw new UserInputError("Цаг захиалга олдсонгүй");
-  if (appointment.status !== "checked_in")
-    throw new UserInputError("Зөвхөн check-in хийгдсэн цагийг эхлүүлэх боломжтой");
+  if (!["scheduled", "checked_in"].includes(appointment.status)) {
+    throw new UserInputError("Зөвхөн scheduled эсвэл checked_in төлөвтэй цагийг эхлүүлэх боломжтой");
+  }
 
   appointment.status = "in_progress";
   await appointment.save();
@@ -269,8 +300,9 @@ export async function cancelAppointment(
 
   const appointment = await Appointment.findById(_id);
   if (!appointment) throw new UserInputError("Цаг захиалга олдсонгүй");
-  if (["completed", "cancelled"].includes(appointment.status))
+  if (["completed", "cancelled"].includes(appointment.status)) {
     throw new UserInputError("Энэ цагийг цуцлах боломжгүй");
+  }
 
   appointment.status = "cancelled";
   appointment.cancelledAt = new Date();
@@ -287,7 +319,7 @@ export async function markNoShow(
   { _id }: { _id: string },
   ctx: ContextType
 ) {
-  requireRole("data_operator", "doctor", "superadmin")(ctx);
+  requireRole("doctor", "superadmin")(ctx);
 
   const appointment = await Appointment.findById(_id);
   if (!appointment) throw new UserInputError("Цаг захиалга олдсонгүй");

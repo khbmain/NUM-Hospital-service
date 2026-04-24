@@ -4,11 +4,22 @@ export default gql`
   type Appointment {
     _id: ID!
     patient: Patient!
-    doctor: Staff!
+    doctor: Staff
+    nurse: Staff
+    assignedStaff: Staff
+    service: Service
+    resource: Resource
     department: Department
     scheduledDate: Date!
     scheduledTime: String!
+    scheduledStart: Date
+    scheduledEnd: Date
+    blockedUntil: Date
     duration: Int
+    durationMinutes: Int
+    bufferMinutes: Int
+    seatNumber: Int
+    appointmentKind: String
     type: String!
     status: String!
     queueNumber: Int
@@ -28,11 +39,18 @@ export default gql`
 
   input CreateAppointmentInput {
     patientId: ID!
-    doctorId: ID!
+    doctorId: ID
+    nurseId: ID
+    assignedStaffId: ID
+    serviceId: ID
+    resourceId: ID
     departmentId: ID
     scheduledDate: Date!
     scheduledTime: String!
     duration: Int
+    durationMinutes: Int
+    bufferMinutes: Int
+    appointmentKind: String
     type: String
     chiefComplaint: String
     notes: String
@@ -40,6 +58,8 @@ export default gql`
 
   input AppointmentFilterInput {
     doctorId: ID
+    serviceId: ID
+    resourceId: ID
     patientId: ID
     departmentId: ID
     status: String

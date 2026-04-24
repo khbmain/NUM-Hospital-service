@@ -7,12 +7,21 @@ export default gql`
     patient: Patient!
     doctor: Staff!
     visitDate: Date!
+    visitType: String
     status: String!
     chiefComplaint: String
     historyOfPresentIllness: String
+    pastMedicalHistory: String
+    familyHistory: String
+    socialHistory: String
+    currentMedications: String
+    allergyNotes: String
+    reviewOfSystems: String
     physicalExamination: String
     assessment: String
     plan: String
+    doctorAdvice: String
+    followUpDate: Date
     notes: String
     vitalSigns: VitalSign
     diagnoses: [Diagnosis!]
@@ -31,6 +40,9 @@ export default gql`
     oxygenSaturation: Float
     weight: Float
     height: Float
+    painScore: Int
+    bloodGlucose: Float
+    bmi: Float
     recordedBy: User
     createdAt: String
   }
@@ -38,15 +50,25 @@ export default gql`
   input CreateVisitInput {
     appointmentId: ID
     patientId: ID!
+    doctorId: ID
+    visitType: String
     chiefComplaint: String
   }
 
   input UpdateVisitInput {
     chiefComplaint: String
     historyOfPresentIllness: String
+    pastMedicalHistory: String
+    familyHistory: String
+    socialHistory: String
+    currentMedications: String
+    allergyNotes: String
+    reviewOfSystems: String
     physicalExamination: String
     assessment: String
     plan: String
+    doctorAdvice: String
+    followUpDate: Date
     notes: String
   }
 
@@ -59,5 +81,7 @@ export default gql`
     oxygenSaturation: Float
     weight: Float
     height: Float
+    painScore: Int
+    bloodGlucose: Float
   }
 `;

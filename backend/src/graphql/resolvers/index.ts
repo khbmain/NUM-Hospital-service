@@ -13,7 +13,7 @@ import {
 // Patient
 import {
   searchPatients, getPatient, getPatientByRegistration, getMyPatientProfile,
-  createPatient, updatePatient,
+  createPatient, updatePatient, upsertMyPatientProfile,
 } from "../../services/patientService";
 
 // Staff
@@ -25,14 +25,23 @@ import {
 // Appointment
 import {
   getAppointment, listAppointments, getMyAppointments,
-  getDoctorQueue, getAvailableSlots,
+  getDoctorQueue,
   createAppointment, checkInAppointment, cancelAppointment,
   startAppointment, completeAppointment, markNoShow,
 } from "../../services/appointmentService";
 
+import {
+  listServices, listResources, getAvailableSlots,
+  createService, updateService, createResource, updateResource, seedDefaultScheduling,
+  listUnavailableBlocks, createUnavailableBlock, updateUnavailableBlock, cancelUnavailableBlock,
+} from "../../services/schedulingService";
+
+import { icd11RootChapters, icd11Children, icd11Search } from "../../services/icdService";
+import { monthlyReport } from "../../services/reportService";
+
 // Visit
 import {
-  getVisit, listVisitsByPatient, getMyVisitHistory, getTodayVisits,
+  getVisit, listVisitsByPatient, getMyVisitHistory, getMyVisitByAppointment, getTodayVisits,
   createVisit, updateVisit, completeVisit, recordVitalSigns,
   resolveVisitVitalSigns, resolveVisitDiagnoses, resolveVisitPrescriptions,
 } from "../../services/visitService";
@@ -78,6 +87,9 @@ export const resolvers = {
     getStaff,
     getDoctors,
     listDepartments,
+    listServices,
+    listResources,
+    listUnavailableBlocks,
 
     // Appointment
     getAppointment,
@@ -85,11 +97,16 @@ export const resolvers = {
     getMyAppointments,
     getDoctorQueue,
     getAvailableSlots,
+    icd11RootChapters,
+    icd11Children,
+    icd11Search,
+    monthlyReport,
 
     // Visit
     getVisit,
     listVisitsByPatient,
     getMyVisitHistory,
+    getMyVisitByAppointment,
     getTodayVisits,
 
     // Diagnosis
@@ -122,12 +139,21 @@ export const resolvers = {
     // Patient
     createPatient,
     updatePatient,
+    upsertMyPatientProfile,
 
     // Staff
     createStaff,
     updateStaff,
     createDepartment,
     updateDepartment,
+    createService,
+    updateService,
+    createResource,
+    updateResource,
+    seedDefaultScheduling,
+    createUnavailableBlock,
+    updateUnavailableBlock,
+    cancelUnavailableBlock,
 
     // Appointment
     createAppointment,
@@ -177,6 +203,10 @@ export const resolvers = {
   Appointment: {
     patient: (parent: any) => parent.patientId,
     doctor: (parent: any) => parent.doctorId,
+    nurse: (parent: any) => parent.nurseId,
+    assignedStaff: (parent: any) => parent.assignedStaffId,
+    service: (parent: any) => parent.serviceId,
+    resource: (parent: any) => parent.resourceId,
     department: (parent: any) => parent.departmentId,
     checkedInBy: (parent: any) => parent.checkedInBy,
     createdBy: (parent: any) => parent.createdBy,
@@ -202,6 +232,24 @@ export const resolvers = {
   Patient: {
     userId: (parent: any) => parent.userId,
     registeredBy: (parent: any) => parent.registeredBy,
+  },
+
+  Resource: {
+    staff: (parent: any) => parent.staffId,
+    services: (parent: any) => parent.serviceIds,
+  },
+
+  Service: {
+    assignedStaffs: (parent: any) => parent.assignedStaffIds,
+  },
+
+  UnavailableBlock: {
+    service: (parent: any) => parent.serviceId,
+    resource: (parent: any) => parent.resourceId,
+    staff: (parent: any) => parent.staffId,
+    cancelledAppointments: (parent: any) => parent.cancelledAppointmentIds,
+    createdBy: (parent: any) => parent.createdBy,
+    cancelledBy: (parent: any) => parent.cancelledBy,
   },
 
   // Scalar types

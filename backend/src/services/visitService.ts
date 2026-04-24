@@ -10,7 +10,26 @@ import { requireRole, requireAuth } from "../utils/auth";
 import { UserInputError } from "apollo-server-errors";
 import { logAudit } from "./auditService";
 
-const POPULATE_FIELDS = "patientId doctorId appointmentId createdBy";
+const POPULATE_FIELDS = [
+  { path: "patientId" },
+  {
+    path: "doctorId",
+    populate: [
+      { path: "userId" },
+      { path: "departmentId" },
+    ],
+  },
+  {
+    path: "appointmentId",
+    populate: [
+      { path: "doctorId", populate: [{ path: "userId" }, { path: "departmentId" }] },
+      { path: "serviceId" },
+      { path: "resourceId" },
+      { path: "departmentId" },
+    ],
+  },
+  { path: "createdBy" },
+];
 
 // ─── Queries ───
 
@@ -28,7 +47,7 @@ export async function listVisitsByPatient(
   { patientId, page = 1, limit = 20 }: { patientId: string; page?: number; limit?: number },
   ctx: ContextType
 ) {
-  requireRole("data_operator", "doctor", "nurse", "superadmin")(ctx);
+  requireRole("doctor", "nurse", "superadmin")(ctx);
   return Visit.find({ patientId })
     .populate(POPULATE_FIELDS)
     .sort({ visitDate: -1 })
@@ -50,6 +69,18 @@ export async function getMyVisitHistory(
     .sort({ visitDate: -1 })
     .skip((page - 1) * limit)
     .limit(limit);
+}
+
+export async function getMyVisitByAppointment(
+  _: any,
+  { appointmentId }: { appointmentId: string },
+  ctx: ContextType
+) {
+  requireAuth(ctx);
+  const patient = await Patient.findOne({ userId: ctx._id });
+  if (!patient) throw new UserInputError("Өвчтөний бүртгэл олдсонгүй");
+
+  return Visit.findOne({ appointmentId, patientId: patient._id }).populate(POPULATE_FIELDS);
 }
 
 export async function getTodayVisits(
@@ -89,12 +120,23 @@ export async function createVisit(
   if (!doctorStaff && ctx.role === "doctor")
     throw new UserInputError("Эмчийн бүртгэл олдсонгүй");
 
+  if (input.appointmentId) {
+    const existingVisit = await Visit.findOne({ appointmentId: input.appointmentId });
+    if (existingVisit) {
+      await Appointment.findByIdAndUpdate(input.appointmentId, {
+        status: existingVisit.status === "completed" ? "completed" : "in_progress",
+      });
+      return existingVisit.populate(POPULATE_FIELDS);
+    }
+  }
+
   const visit = new Visit({
     appointmentId: input.appointmentId || undefined,
     patientId: input.patientId,
     doctorId: doctorStaff?._id || input.doctorId,
     visitDate: new Date(),
     status: "active",
+    visitType: input.visitType || (input.appointmentId ? "scheduled" : "doctor_created"),
     chiefComplaint: input.chiefComplaint,
     createdBy: ctx._id,
   });
@@ -180,10 +222,16 @@ export async function recordVitalSigns(
   if (!visit) throw new UserInputError("Үзлэг олдсонгүй");
 
   // Upsert vital signs for this visit
+  const nextInput = { ...input };
+  if (nextInput.weight && nextInput.height) {
+    const heightInMeters = nextInput.height / 100;
+    nextInput.bmi = Number((nextInput.weight / (heightInMeters * heightInMeters)).toFixed(1));
+  }
+
   const vitalSign = await VitalSign.findOneAndUpdate(
     { visitId },
     {
-      ...input,
+      ...nextInput,
       visitId,
       patientId: visit.patientId,
       recordedBy: ctx._id,

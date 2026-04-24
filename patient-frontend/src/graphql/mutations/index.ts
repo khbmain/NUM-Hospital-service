@@ -43,12 +43,40 @@ export const CREATE_APPOINTMENT = gql`
       _id
       scheduledDate
       scheduledTime
+      scheduledStart
+      scheduledEnd
       status
       queueNumber
+      service { name }
+      resource { name }
       doctor {
         userId { firstname lastname }
         department { name }
       }
+    }
+  }
+`;
+
+export const UPSERT_MY_PATIENT_PROFILE = gql`
+  mutation UpsertMyPatientProfile($input: PatientProfileInput!) {
+    upsertMyPatientProfile(input: $input) {
+      _id
+      registrationNumber
+      firstname
+      lastname
+      phone
+      email
+      gender
+      birthdate
+      bloodType
+      allergies
+      chronicConditions
+      regularMedications
+      medicalWarnings
+      emergencyContact { name phone relationship }
+      address
+      notes
+      profileCompletedAt
     }
   }
 `;

@@ -35,7 +35,7 @@ export async function getPrescriptionsByPatient(
   { patientId }: { patientId: string },
   ctx: ContextType
 ) {
-  requireRole("doctor", "data_operator", "nurse", "superadmin")(ctx);
+  requireRole("doctor", "nurse", "superadmin")(ctx);
   return Prescription.find({ patientId }).populate(POPULATE_FIELDS).sort({ createdAt: -1 });
 }
 

@@ -12,7 +12,7 @@ export async function listStaff(
   { staffType, departmentId }: { staffType?: string; departmentId?: string },
   ctx: ContextType
 ) {
-  requireRole("superadmin", "data_operator", "doctor", "nurse")(ctx);
+  requireRole("superadmin", "doctor", "nurse")(ctx);
   const filter: any = {};
   if (staffType) filter.staffType = staffType;
   if (departmentId) filter.departmentId = departmentId;
@@ -24,7 +24,7 @@ export async function getStaff(
   { _id }: { _id: string },
   ctx: ContextType
 ) {
-  requireRole("superadmin", "data_operator")(ctx);
+  requireRole("superadmin")(ctx);
   return Staff.findById(_id).populate("userId departmentId");
 }
 

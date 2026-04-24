@@ -70,7 +70,6 @@ export const ADMIN_FRONTEND_URL =
 // Hospital enums
 export const ROLES = [
   "patient",
-  "data_operator",
   "doctor",
   "nurse",
   "superadmin",

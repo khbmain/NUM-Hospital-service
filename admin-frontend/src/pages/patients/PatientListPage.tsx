@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SEARCH_PATIENTS } from '../../graphql/queries';
 import { CREATE_PATIENT } from '../../graphql/mutations';
 import { useAuth } from '../../hooks/useAuth';
@@ -17,6 +17,7 @@ const CATEGORIES = [
 
 export default function PatientListPage() {
   const { hasRole } = useAuth();
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(params.get('action') === 'new');
@@ -28,6 +29,7 @@ export default function PatientListPage() {
     gender: 'male',
   });
   const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
 
   const { data, loading, refetch } = useQuery(SEARCH_PATIENTS, {
     variables: { query, page: 1, limit: 30 },
@@ -53,7 +55,7 @@ export default function PatientListPage() {
       });
       refetch();
     } catch (err: any) {
-      alert(err.message);
+      setError(err.message);
     }
   };
 
@@ -83,6 +85,15 @@ export default function PatientListPage() {
         <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
           <Check size={14} /> {success}
           <button onClick={() => setSuccess('')} className="ml-auto">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+          <button onClick={() => setError('')} className="ml-auto">
             <X size={14} />
           </button>
         </div>
@@ -193,7 +204,7 @@ export default function PatientListPage() {
                       key={patient._id}
                       className="cursor-pointer"
                       onClick={() => {
-                        window.location.href = `/patients/${patient._id}`;
+                        navigate(`/patients/${patient._id}`);
                       }}
                     >
                       <td className="text-xs font-medium text-brand-600">{patient.registrationNumber}</td>

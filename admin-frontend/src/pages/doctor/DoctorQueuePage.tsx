@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@apollo/client';
 import { useAuth } from '../../hooks/useAuth';
 import { DOCTOR_QUEUE, LIST_STAFF } from '../../graphql/queries';
@@ -5,29 +7,37 @@ import { CREATE_VISIT, START_APPOINTMENT } from '../../graphql/mutations';
 import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
-import { useNavigate } from 'react-router-dom';
-import { Stethoscope, Play, Clock } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Stethoscope, Play, Clock, X } from 'lucide-react';
 
 export default function DoctorQueuePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [staffId, setStaffId] = useState('');
+  const [startingId, setStartingId] = useState('');
+  const [error, setError] = useState('');
+  const [queueDate] = useState(() => new Date().toISOString());
 
-  const { data: staffData } = useQuery(LIST_STAFF, {
+  const {
+    data: staffData,
+    loading: staffLoading,
+    error: staffError,
+  } = useQuery(LIST_STAFF, {
     variables: { staffType: 'doctor' },
   });
 
   useEffect(() => {
-    if (staffData?.listStaff) {
-      const myStaff = staffData.listStaff.find((s: any) => s.userId?._id === user?._id);
-      if (myStaff) setStaffId(myStaff._id);
-    }
-  }, [staffData, user]);
+    if (!staffData?.listStaff || !user?._id) return;
+    const myStaff = staffData.listStaff.find((staff: any) => staff.userId?._id === user._id);
+    setStaffId(myStaff?._id || '');
+  }, [staffData, user?._id]);
 
-  const today = new Date().toISOString();
-  const { data, loading } = useQuery(DOCTOR_QUEUE, {
-    variables: { doctorId: staffId, date: today },
+  const {
+    data,
+    loading,
+    error: queueError,
+    refetch,
+  } = useQuery(DOCTOR_QUEUE, {
+    variables: { doctorId: staffId, date: queueDate },
     skip: !staffId,
     pollInterval: 15000,
   });
@@ -36,12 +46,23 @@ export default function DoctorQueuePage() {
   const [createVisit] = useMutation(CREATE_VISIT);
 
   const queue = data?.getDoctorQueue || [];
+  const hasInitialStaffData = Boolean(staffData || staffError);
+  const isInitialLoading = !hasInitialStaffData || (!!staffId && loading && !data);
+  const pageError = error || staffError?.message || queueError?.message || '';
+
+  const hasStaffRecord = useMemo(() => {
+    if (!staffData?.listStaff || !user?._id) return false;
+    return staffData.listStaff.some((staff: any) => staff.userId?._id === user._id);
+  }, [staffData, user?._id]);
 
   const handleStartExam = async (appointment: any) => {
+    setError('');
+    setStartingId(appointment._id);
     try {
-      if (appointment.status === 'checked_in') {
+      if (appointment.status === 'scheduled' || appointment.status === 'checked_in') {
         await startAppt({ variables: { id: appointment._id } });
       }
+
       const { data: visitData } = await createVisit({
         variables: {
           input: {
@@ -51,70 +72,100 @@ export default function DoctorQueuePage() {
           },
         },
       });
+
+      await refetch();
       navigate(`/doctor/examine/${visitData.createVisit._id}`);
     } catch (err: any) {
-      alert(err.message);
+      setError(err.message);
+    } finally {
+      setStartingId('');
     }
   };
 
-  if (!staffId && !loading) {
-    return <EmptyState icon={<Stethoscope size={40} />} title="Эмчийн бүртгэл олдсонгүй" description="Систем админтай холбогдоно уу" />;
+  if (isInitialLoading) {
+    return <LoadingSpinner text="Дараалал ачааллаж байна..." />;
   }
 
-  if (loading) return <LoadingSpinner text="Дараалал ачааллаж байна..." />;
+  if (!hasStaffRecord && !staffLoading) {
+    return (
+      <EmptyState
+        icon={<Stethoscope size={40} />}
+        title="Эмчийн бүртгэл олдсонгүй"
+        description="Энэ хэрэглэгч staff бүртгэлтэй холбогдоогүй байна."
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-display text-surface-900">Өнөөдрийн дараалал</h1>
-          <p className="text-sm text-surface-500 mt-0.5">{new Date().toLocaleDateString('mn-MN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <p className="mt-0.5 text-sm text-surface-500">
+            {new Date().toLocaleDateString('mn-MN', { year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
         </div>
-        <div className="stat-card !p-3 text-center">
+        <div className="stat-card !p-3 text-center min-w-16">
           <div className="stat-value text-lg">{queue.length}</div>
           <div className="stat-label">Нийт</div>
         </div>
       </div>
 
+      {pageError && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <span>{pageError}</span>
+          <button type="button" onClick={() => setError('')} className="text-red-500 hover:text-red-700" aria-label="Алдаа хаах">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {queue.length === 0 ? (
         <EmptyState icon={<Clock size={40} />} title="Өнөөдөр хүлээж буй өвчтөн байхгүй" />
       ) : (
         <div className="space-y-3">
-          {queue.map((appt: any) => (
-            <div key={appt._id} className="card flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-brand-50 flex items-center justify-center flex-shrink-0">
-                <span className="text-lg font-display text-brand-700">#{appt.queueNumber || '–'}</span>
+          {queue.map((appointment: any) => (
+            <div key={appointment._id} className="card flex items-center gap-4">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-brand-50">
+                <span className="text-lg font-display text-brand-700">#{appointment.queueNumber || '-'}</span>
               </div>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="font-medium text-surface-800 text-sm">
-                    {appt.patient?.lastname?.charAt(0)}.{appt.patient?.firstname}
+              <div className="min-w-0 flex-1">
+                <div className="mb-0.5 flex items-center gap-2">
+                  <span className="text-sm font-medium text-surface-800">
+                    {appointment.patient?.lastname?.charAt(0)}.{appointment.patient?.firstname}
                   </span>
-                  <StatusBadge status={appt.status} />
+                  <StatusBadge status={appointment.status} />
                 </div>
                 <p className="text-xs text-surface-500">
-                  {appt.patient?.registrationNumber} · {appt.scheduledTime}
-                  {appt.patient?.gender && ` · ${appt.patient.gender === 'male' ? 'Эр' : 'Эм'}`}
+                  {appointment.patient?.registrationNumber} · {appointment.scheduledTime}
+                  {appointment.patient?.gender && ` · ${appointment.patient.gender === 'male' ? 'Эр' : 'Эм'}`}
                 </p>
-                {appt.chiefComplaint && (
-                  <p className="text-xs text-surface-400 mt-0.5 truncate">{appt.chiefComplaint}</p>
+                {appointment.chiefComplaint && (
+                  <p className="mt-0.5 truncate text-xs text-surface-400">{appointment.chiefComplaint}</p>
                 )}
               </div>
 
               <div className="flex-shrink-0">
-                {appt.status === 'checked_in' && (
-                  <button onClick={() => handleStartExam(appt)} className="btn-primary text-xs">
-                    <Play size={13} /> Үзлэг эхлэх
+                {(appointment.status === 'scheduled' || appointment.status === 'checked_in') && (
+                  <button
+                    type="button"
+                    onClick={() => handleStartExam(appointment)}
+                    disabled={startingId === appointment._id}
+                    className="btn-primary text-xs"
+                  >
+                    <Play size={13} /> {startingId === appointment._id ? 'Эхлүүлж байна...' : 'Үзлэг эхлэх'}
                   </button>
                 )}
-                {appt.status === 'in_progress' && (
-                  <button onClick={() => handleStartExam(appt)} className="btn-secondary text-xs">
-                    <Stethoscope size={13} /> Үргэлжлүүлэх
+                {appointment.status === 'in_progress' && (
+                  <button
+                    type="button"
+                    onClick={() => handleStartExam(appointment)}
+                    disabled={startingId === appointment._id}
+                    className="btn-secondary text-xs"
+                  >
+                    <Stethoscope size={13} /> {startingId === appointment._id ? 'Нээж байна...' : 'Үргэлжлүүлэх'}
                   </button>
-                )}
-                {appt.status === 'scheduled' && (
-                  <span className="text-xs text-surface-400">Бүртгэл хүлээгдэж байна</span>
                 )}
               </div>
             </div>

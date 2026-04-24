@@ -16,6 +16,13 @@ const DiagnosisSchema = new mongoose.Schema(
     },
     doctorId: { type: mongoose.Schema.Types.ObjectId, ref: "Staff" },
     icdCode: { type: String },
+    icdTitle: { type: String },
+    icdVersion: { type: String },
+    icdLinearization: { type: String, default: "mms" },
+    icdLanguage: { type: String, default: "en" },
+    icdLinearizationUri: { type: String },
+    icdFoundationUri: { type: String },
+    icdParentUri: { type: String },
     name: { type: String, required: true },
     description: { type: String },
     type: {

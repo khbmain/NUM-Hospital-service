@@ -38,6 +38,21 @@ export interface Department {
   description?: string;
 }
 
+export interface Service {
+  _id: string;
+  name: string;
+  code: string;
+  category: string;
+  description?: string;
+  defaultDurationMinutes?: number;
+  defaultBufferMinutes?: number;
+  requiresDoctor?: boolean;
+  requiresNurse?: boolean;
+  requiresDevice?: boolean;
+  isActive?: boolean;
+  createdAt?: string;
+}
+
 export interface Staff {
   _id: string;
   userId: User;
@@ -145,4 +160,11 @@ export const STATUS_LABELS: Record<string, string> = {
   active: 'Идэвхтэй',
   draft: 'Ноорог',
   dispensed: 'Олгосон',
+  primary: 'Үндсэн',
+  secondary: 'Хавсарсан',
+  differential: 'Ялгах',
+  mild: 'Хөнгөн',
+  moderate: 'Дунд',
+  severe: 'Хүнд',
+  critical: 'Маш хүнд',
 };

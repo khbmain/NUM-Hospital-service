@@ -60,7 +60,7 @@ export default function AppointmentListPage() {
         ) : (
           <div className="space-y-3">
             {upcoming.map((appt: any) => (
-              <div key={appt._id} className="card flex items-center gap-4">
+              <Link key={appt._id} to={`/appointments/${appt._id}`} className="card flex items-center gap-4 hover:shadow-md transition-shadow">
                 <div className="w-14 h-14 rounded-xl bg-brand-50 flex flex-col items-center justify-center flex-shrink-0">
                   <span className="text-[10px] font-medium text-brand-600 uppercase">
                     {new Date(appt.scheduledDate).toLocaleDateString('mn-MN', { month: 'short' })}
@@ -90,7 +90,7 @@ export default function AppointmentListPage() {
                     <span className="text-lg font-display text-brand-600">#{appt.queueNumber}</span>
                   </div>
                 )}
-              </div>
+              </Link>
             ))}
           </div>
         )}
@@ -103,7 +103,7 @@ export default function AppointmentListPage() {
           </h2>
           <div className="space-y-2">
             {past.map((appt: any) => (
-              <div key={appt._id} className="card !p-4 flex items-center gap-3 opacity-75">
+              <Link key={appt._id} to={`/appointments/${appt._id}`} className="card !p-4 flex items-center gap-3 opacity-75 hover:shadow-md transition-shadow">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-surface-600">{formatDate(appt.scheduledDate)}</span>
@@ -118,7 +118,7 @@ export default function AppointmentListPage() {
                     </p>
                   )}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </section>

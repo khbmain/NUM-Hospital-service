@@ -8,10 +8,15 @@ import LoadingSpinner from './components/common/LoadingSpinner';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PatientListPage from './pages/patients/PatientListPage';
+import PatientDetailPage from './pages/patients/PatientDetailPage';
 import AppointmentListPage from './pages/appointments/AppointmentListPage';
+import AppointmentDetailPage from './pages/appointments/AppointmentDetailPage';
 import DoctorQueuePage from './pages/doctor/DoctorQueuePage';
 import ExaminePage from './pages/doctor/ExaminePage';
 import StaffListPage from './pages/staff/StaffListPage';
+import ServicesPage from './pages/services/ServicesPage';
+import MonthlyReportPage from './pages/reports/MonthlyReportPage';
+import UnavailableBlocksPage from './pages/schedule/UnavailableBlocksPage';
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { isAuthenticated, loading, hasRole } = useAuth();
@@ -36,10 +41,13 @@ function AppRoutes() {
       <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
 
       {/* Patients */}
-      <Route path="/patients" element={<ProtectedRoute roles={['data_operator','doctor','nurse','superadmin']}><PatientListPage /></ProtectedRoute>} />
+      <Route path="/patients" element={<ProtectedRoute roles={['doctor','nurse','superadmin']}><PatientListPage /></ProtectedRoute>} />
+      <Route path="/patients/:id" element={<ProtectedRoute roles={['doctor','nurse','superadmin']}><PatientDetailPage /></ProtectedRoute>} />
 
       {/* Appointments */}
-      <Route path="/appointments" element={<ProtectedRoute roles={['data_operator','doctor','superadmin']}><AppointmentListPage /></ProtectedRoute>} />
+      <Route path="/appointments" element={<ProtectedRoute roles={['doctor','superadmin']}><AppointmentListPage /></ProtectedRoute>} />
+      <Route path="/appointments/:id" element={<ProtectedRoute roles={['doctor','superadmin']}><AppointmentDetailPage /></ProtectedRoute>} />
+      <Route path="/schedule/unavailable" element={<ProtectedRoute roles={['doctor','nurse','superadmin']}><UnavailableBlocksPage /></ProtectedRoute>} />
 
       {/* Doctor */}
       <Route path="/doctor/queue" element={<ProtectedRoute roles={['doctor']}><DoctorQueuePage /></ProtectedRoute>} />
@@ -47,12 +55,12 @@ function AppRoutes() {
 
       {/* Staff */}
       <Route path="/staff" element={<ProtectedRoute roles={['superadmin']}><StaffListPage /></ProtectedRoute>} />
+      <Route path="/services" element={<ProtectedRoute roles={['superadmin']}><ServicesPage /></ProtectedRoute>} />
 
       {/* Placeholder pages - to be built */}
-      <Route path="/departments" element={<ProtectedRoute roles={['superadmin']}><Placeholder title="Тасгийн удирдлага" /></ProtectedRoute>} />
       <Route path="/nurse/queue" element={<ProtectedRoute roles={['nurse']}><Placeholder title="Сувилагчийн дараалал" /></ProtectedRoute>} />
       <Route path="/inventory" element={<ProtectedRoute roles={['nurse','superadmin']}><Placeholder title="Эм, материал" /></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute roles={['data_operator','doctor','superadmin']}><Placeholder title="Тайлан" /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute roles={['doctor','superadmin']}><MonthlyReportPage /></ProtectedRoute>} />
       <Route path="/audit" element={<ProtectedRoute roles={['superadmin']}><Placeholder title="Аудит лог" /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute roles={['superadmin']}><Placeholder title="Тохиргоо" /></ProtectedRoute>} />
 

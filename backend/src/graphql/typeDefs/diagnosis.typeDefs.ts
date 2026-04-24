@@ -7,6 +7,13 @@ export default gql`
     patient: Patient!
     doctor: Staff
     icdCode: String
+    icdTitle: String
+    icdVersion: String
+    icdLinearization: String
+    icdLanguage: String
+    icdLinearizationUri: String
+    icdFoundationUri: String
+    icdParentUri: String
     name: String!
     description: String
     type: String!
@@ -18,6 +25,13 @@ export default gql`
   input CreateDiagnosisInput {
     visitId: ID!
     icdCode: String
+    icdTitle: String
+    icdVersion: String
+    icdLinearization: String
+    icdLanguage: String
+    icdLinearizationUri: String
+    icdFoundationUri: String
+    icdParentUri: String
     name: String!
     description: String
     type: String!
@@ -27,6 +41,13 @@ export default gql`
 
   input UpdateDiagnosisInput {
     icdCode: String
+    icdTitle: String
+    icdVersion: String
+    icdLinearization: String
+    icdLanguage: String
+    icdLinearizationUri: String
+    icdFoundationUri: String
+    icdParentUri: String
     name: String
     description: String
     type: String

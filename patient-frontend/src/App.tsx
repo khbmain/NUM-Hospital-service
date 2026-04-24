@@ -11,6 +11,7 @@ import AuthCallbackPage from './pages/AuthCallbackPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import AppointmentListPage from './pages/AppointmentListPage';
+import AppointmentDetailPage from './pages/AppointmentDetailPage';
 import AppointmentBookPage from './pages/AppointmentBookPage';
 import VisitListPage from './pages/VisitListPage';
 import VisitDetailPage from './pages/VisitDetailPage';
@@ -41,6 +42,7 @@ function AppRoutes() {
       <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/appointments" element={<ProtectedRoute><AppointmentListPage /></ProtectedRoute>} />
+      <Route path="/appointments/:id" element={<ProtectedRoute><AppointmentDetailPage /></ProtectedRoute>} />
       <Route path="/appointments/book" element={<ProtectedRoute><AppointmentBookPage /></ProtectedRoute>} />
       <Route path="/visits" element={<ProtectedRoute><VisitListPage /></ProtectedRoute>} />
       <Route path="/visits/:id" element={<ProtectedRoute><VisitDetailPage /></ProtectedRoute>} />

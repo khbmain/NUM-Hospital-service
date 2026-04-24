@@ -17,9 +17,13 @@ export default gql`
     universityId: String
     bloodType: String
     allergies: [String]
+    chronicConditions: [String]
+    regularMedications: [String]
+    medicalWarnings: [String]
     emergencyContact: EmergencyContact
     address: String
     notes: String
+    profileCompletedAt: Date
     status: String
     registeredBy: User
     createdAt: String
@@ -52,6 +56,9 @@ export default gql`
     universityId: String
     bloodType: String
     allergies: [String]
+    chronicConditions: [String]
+    regularMedications: [String]
+    medicalWarnings: [String]
     emergencyContact: EmergencyContactInput
     address: String
     notes: String
@@ -66,6 +73,30 @@ export default gql`
     birthdate: Date
     bloodType: String
     allergies: [String]
+    chronicConditions: [String]
+    regularMedications: [String]
+    medicalWarnings: [String]
+    emergencyContact: EmergencyContactInput
+    address: String
+    notes: String
+  }
+
+  input PatientProfileInput {
+    registrationNumber: String!
+    firstname: String!
+    lastname: String!
+    phone: String!
+    email: String
+    gender: String!
+    birthdate: Date!
+    nationalId: String
+    category: String
+    universityId: String
+    bloodType: String
+    allergies: [String]
+    chronicConditions: [String]
+    regularMedications: [String]
+    medicalWarnings: [String]
     emergencyContact: EmergencyContactInput
     address: String
     notes: String

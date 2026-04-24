@@ -64,7 +64,50 @@ export const RECORD_VITALS = gql`
 
 export const CREATE_DIAGNOSIS = gql`
   mutation CreateDiagnosis($input: CreateDiagnosisInput!) {
-    createDiagnosis(input: $input) { _id name icdCode type severity }
+    createDiagnosis(input: $input) { _id name icdCode icdTitle icdLinearizationUri icdFoundationUri type severity }
+  }
+`;
+
+export const SEED_DEFAULT_SCHEDULING = gql`
+  mutation SeedDefaultScheduling {
+    seedDefaultScheduling
+  }
+`;
+
+export const CREATE_UNAVAILABLE_BLOCK = gql`
+  mutation CreateUnavailableBlock($input: CreateUnavailableBlockInput!) {
+    createUnavailableBlock(input: $input) {
+      _id
+      startAt
+      endAt
+      reason
+      resource { name }
+      staff { userId { firstname lastname } }
+      cancelledAppointments { _id }
+    }
+  }
+`;
+
+export const UPDATE_UNAVAILABLE_BLOCK = gql`
+  mutation UpdateUnavailableBlock($id: ID!, $input: UpdateUnavailableBlockInput!) {
+    updateUnavailableBlock(_id: $id, input: $input) {
+      _id
+      startAt
+      endAt
+      reason
+      note
+      status
+    }
+  }
+`;
+
+export const CANCEL_UNAVAILABLE_BLOCK = gql`
+  mutation CancelUnavailableBlock($id: ID!) {
+    cancelUnavailableBlock(_id: $id) {
+      _id
+      status
+      cancelledAt
+    }
   }
 `;
 
@@ -77,6 +120,44 @@ export const CREATE_PRESCRIPTION = gql`
 export const CREATE_STAFF = gql`
   mutation CreateStaff($input: CreateStaffInput!) {
     createStaff(input: $input) { _id staffType specialization }
+  }
+`;
+
+export const CREATE_SERVICE = gql`
+  mutation CreateService($input: CreateServiceInput!) {
+    createService(input: $input) {
+      _id
+      name
+      code
+      category
+      description
+      defaultDurationMinutes
+      defaultBufferMinutes
+      requiresDoctor
+      requiresNurse
+      requiresDevice
+      assignedStaffs { _id staffType userId { _id firstname lastname } }
+      isActive
+    }
+  }
+`;
+
+export const UPDATE_SERVICE = gql`
+  mutation UpdateService($id: ID!, $input: UpdateServiceInput!) {
+    updateService(_id: $id, input: $input) {
+      _id
+      name
+      code
+      category
+      description
+      defaultDurationMinutes
+      defaultBufferMinutes
+      requiresDoctor
+      requiresNurse
+      requiresDevice
+      assignedStaffs { _id staffType userId { _id firstname lastname } }
+      isActive
+    }
   }
 `;
 

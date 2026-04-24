@@ -22,6 +22,9 @@ const PatientSchema = new mongoose.Schema(
     universityId: { type: String },
     bloodType: { type: String, enum: BLOOD_TYPES, default: "unknown" },
     allergies: [{ type: String }],
+    chronicConditions: [{ type: String }],
+    regularMedications: [{ type: String }],
+    medicalWarnings: [{ type: String }],
     emergencyContact: {
       name: { type: String },
       phone: { type: String },
@@ -29,6 +32,7 @@ const PatientSchema = new mongoose.Schema(
     },
     address: { type: String },
     notes: { type: String },
+    profileCompletedAt: { type: Date },
     status: {
       type: String,
       enum: ["active", "inactive"],

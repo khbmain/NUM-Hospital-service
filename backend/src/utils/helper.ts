@@ -92,3 +92,38 @@ export async function sendEmailOtp({
 
   return "Email sent";
 }
+
+export async function sendEmail({
+  to,
+  subject,
+  text,
+  html,
+}: {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+}) {
+  if (!NODEMAILER.user || !NODEMAILER.pass) {
+    console.warn(`Email credentials are not configured. Email to ${to}: ${subject}`);
+    return "Email not configured";
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: NODEMAILER.user,
+      pass: NODEMAILER.pass,
+    },
+  });
+
+  await transporter.sendMail({
+    from: NODEMAILER.user,
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  return "Email sent";
+}

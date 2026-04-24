@@ -31,7 +31,7 @@ export async function getUser(
   { _id }: { _id: string },
   ctx: ContextType
 ) {
-  requireRole("superadmin", "data_operator")(ctx);
+  requireRole("superadmin")(ctx);
   return User.findById(_id);
 }
 

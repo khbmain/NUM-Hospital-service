@@ -12,7 +12,7 @@ const StaffSchema = new mongoose.Schema(
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Department" },
     staffType: {
       type: String,
-      enum: ["doctor", "nurse", "data_operator", "admin_staff"],
+      enum: ["doctor", "nurse", "admin_staff"],
       required: true,
     },
     specialization: { type: String },
