@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, X } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 import { GET_PATIENT, PRESCRIPTIONS_BY_PATIENT, VISITS_BY_PATIENT } from '../../graphql/queries';
 import { UPDATE_PATIENT } from '../../graphql/mutations';
 import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { useToast } from '../../components/common/ToastProvider';
 
 type PatientForm = {
   firstname: string;
@@ -63,8 +64,7 @@ export default function PatientDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [form, setForm] = useState<PatientForm>(emptyForm);
-  const [success, setSuccess] = useState('');
-  const [error, setError] = useState('');
+  const { toast } = useToast();
 
   const { data, loading, refetch } = useQuery(GET_PATIENT, {
     variables: { id },
@@ -109,7 +109,6 @@ export default function PatientDetailPage() {
     if (!id) return;
 
     try {
-      setError('');
       await updatePatient({
         variables: {
           id,
@@ -133,9 +132,9 @@ export default function PatientDetailPage() {
         },
       });
       await refetch();
-      setSuccess('Өвчтөний мэдээлэл хадгалагдлаа.');
+      toast('Өвчтөний мэдээлэл хадгалагдлаа.', 'success');
     } catch (err: any) {
-      setError(err.message);
+      toast(err.message || 'Өвчтөний мэдээлэл хадгалахад алдаа гарлаа', 'error');
     }
   };
 
@@ -160,24 +159,6 @@ export default function PatientDetailPage() {
         </div>
         <StatusBadge status={patient.status || 'active'} />
       </div>
-
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          <span>{error}</span>
-          <button type="button" onClick={() => setError('')} className="ml-auto" aria-label="Алдаа хаах">
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
-      {success && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-          <span>{success}</span>
-          <button type="button" onClick={() => setSuccess('')} className="ml-auto" aria-label="Мэдэгдэл хаах">
-            <X size={14} />
-          </button>
-        </div>
-      )}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
         <form onSubmit={handleSave} className="card space-y-4">

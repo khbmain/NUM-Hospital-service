@@ -1,25 +1,26 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useToast } from "../components/common/ToastProvider";
 import { Lock, Phone, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
     try {
       await login(phone, password);
+      toast("Амжилттай нэвтэрлээ.", "success");
       navigate("/");
     } catch (err: any) {
-      setError(err.message || "Нэвтрэхэд алдаа гарлаа");
+      toast(err.message || "Нэвтрэхэд алдаа гарлаа", "error");
     } finally {
       setLoading(false);
     }
@@ -39,15 +40,14 @@ export default function LoginPage() {
           <h2 className="text-lg font-display text-surface-900 mb-1">Удирдлагын систем</h2>
           <p className="text-surface-500 text-sm mb-6">Ажилтнууд нэвтрэнэ үү</p>
 
-          {error && <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>}
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1">Утас</label>
+              <label className="block text-sm font-medium text-surface-700 mb-1">Утасны дугаар</label>
               <div className="relative">
                 <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
                 <input
-                  type="text"
+                  type="tel"
+                  inputMode="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="99112233"

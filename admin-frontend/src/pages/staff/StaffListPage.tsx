@@ -4,7 +4,8 @@ import { LIST_STAFF, LIST_DEPARTMENTS } from '../../graphql/queries';
 import { REGISTER_USER, CREATE_STAFF } from '../../graphql/mutations';
 import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { UserCog, Plus, X, Check } from 'lucide-react';
+import { useToast } from '../../components/common/ToastProvider';
+import { UserCog, Plus, X } from 'lucide-react';
 
 const STAFF_TYPES = [
   { value: 'doctor', label: 'Эмч' },
@@ -20,8 +21,7 @@ export default function StaffListPage() {
     firstname: '', lastname: '', phone: '', password: '',
     role: 'doctor', staffType: 'doctor', specialization: '', departmentId: '',
   });
-  const [success, setSuccess] = useState('');
-  const [error, setError] = useState('');
+  const { toast } = useToast();
 
   const { data, loading, refetch } = useQuery(LIST_STAFF, {
     variables: { staffType: typeFilter || undefined },
@@ -56,11 +56,11 @@ export default function StaffListPage() {
           },
         },
       });
-      setSuccess(`${formData.firstname} амжилттай бүртгэгдлээ`);
+      toast(`${formData.firstname} амжилттай бүртгэгдлээ`, 'success');
       setShowForm(false);
       setFormData({ firstname: '', lastname: '', phone: '', password: '', role: 'doctor', staffType: 'doctor', specialization: '', departmentId: '' });
       refetch();
-    } catch (err: any) { setError(err.message); }
+    } catch (err: any) { toast(err.message || 'Ажилтан бүртгэхэд алдаа гарлаа', 'error'); }
   };
 
   return (
@@ -71,20 +71,6 @@ export default function StaffListPage() {
           {showForm ? <><X size={14} /> Хаах</> : <><Plus size={14} /> Шинэ ажилтан</>}
         </button>
       </div>
-
-      {success && (
-        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm flex items-center gap-2">
-          <Check size={14} /> {success}
-          <button onClick={() => setSuccess('')} className="ml-auto"><X size={14} /></button>
-        </div>
-      )}
-
-      {error && (
-        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
-          {error}
-          <button onClick={() => setError('')} className="ml-auto"><X size={14} /></button>
-        </div>
-      )}
 
       {showForm && (
         <form onSubmit={handleCreate} className="card space-y-4">

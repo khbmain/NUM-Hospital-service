@@ -8,6 +8,7 @@ type AppModalProps = {
   children?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
+  maxWidthClassName?: string;
   tone?: 'default' | 'danger';
   loading?: boolean;
   onClose: () => void;
@@ -21,6 +22,7 @@ export default function AppModal({
   children,
   confirmLabel = 'Батлах',
   cancelLabel = 'Болих',
+  maxWidthClassName = 'max-w-md',
   tone = 'default',
   loading,
   onClose,
@@ -31,7 +33,7 @@ export default function AppModal({
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-6">
       <button type="button" aria-label="Close modal" className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-xl bg-white shadow-2xl border border-surface-200 overflow-hidden">
+      <div className={`relative w-full ${maxWidthClassName} rounded-xl bg-white shadow-2xl border border-surface-200 overflow-hidden`}>
         <div className="flex items-start gap-3 p-5 border-b border-surface-100">
           <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${tone === 'danger' ? 'bg-red-50 text-red-600' : 'bg-brand-50 text-brand-600'}`}>
             <AlertCircle size={18} />

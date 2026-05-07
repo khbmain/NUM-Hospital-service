@@ -6,7 +6,8 @@ import { CREATE_PATIENT } from '../../graphql/mutations';
 import { useAuth } from '../../hooks/useAuth';
 import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { Search, Plus, X, UserPlus, Check } from 'lucide-react';
+import { useToast } from '../../components/common/ToastProvider';
+import { Search, Plus, X, UserPlus } from 'lucide-react';
 
 const CATEGORIES = [
   { value: 'student', label: 'Оюутан' },
@@ -17,6 +18,7 @@ const CATEGORIES = [
 
 export default function PatientListPage() {
   const { hasRole } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [query, setQuery] = useState('');
@@ -28,9 +30,6 @@ export default function PatientListPage() {
     category: 'student',
     gender: 'male',
   });
-  const [success, setSuccess] = useState('');
-  const [error, setError] = useState('');
-
   const { data, loading, refetch } = useQuery(SEARCH_PATIENTS, {
     variables: { query, page: 1, limit: 30 },
   });
@@ -44,7 +43,7 @@ export default function PatientListPage() {
     e.preventDefault();
     try {
       const { data } = await createPatient({ variables: { input: formData } });
-      setSuccess(`Өвчтөн бүртгэгдлээ: ${data.createPatient.registrationNumber}`);
+      toast(`Өвчтөн бүртгэгдлээ: ${data.createPatient.registrationNumber}`, 'success');
       setShowForm(false);
       setFormData({
         firstname: '',
@@ -55,7 +54,7 @@ export default function PatientListPage() {
       });
       refetch();
     } catch (err: any) {
-      setError(err.message);
+      toast(err.message || 'Өвчтөн бүртгэхэд алдаа гарлаа', 'error');
     }
   };
 
@@ -80,24 +79,6 @@ export default function PatientListPage() {
           </button>
         )}
       </div>
-
-      {success && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-          <Check size={14} /> {success}
-          <button onClick={() => setSuccess('')} className="ml-auto">
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-          <button onClick={() => setError('')} className="ml-auto">
-            <X size={14} />
-          </button>
-        </div>
-      )}
 
       {showForm && (
         <form onSubmit={handleCreate} className="card space-y-4">

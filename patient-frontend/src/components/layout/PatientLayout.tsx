@@ -16,7 +16,7 @@ import { useState } from 'react';
 
 const navItems = [
   { path: '/', label: 'Нүүр', icon: Home },
-  { path: '/appointments', label: 'Цаг захиалга', icon: Calendar },
+  { path: '/appointments', label: 'Миний цагууд', icon: Calendar },
   { path: '/visits', label: 'Үзлэгийн түүх', icon: Stethoscope },
   { path: '/prescriptions', label: 'Жор', icon: Pill },
   { path: '/profile', label: 'Профайл', icon: User },

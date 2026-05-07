@@ -37,6 +37,7 @@ export const MY_PATIENT_PROFILE = gql`
       address
       notes
       status
+      profileCompletedAt
     }
   }
 `;

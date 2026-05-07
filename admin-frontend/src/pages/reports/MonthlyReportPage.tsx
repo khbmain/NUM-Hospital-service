@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useQuery } from '@apollo/client';
 import { MONTHLY_REPORT } from '../../graphql/queries';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -25,6 +25,113 @@ function ReportTable({ title, rows }: { title: string; rows: { label: string; co
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function AgeGenderMatrix({ report }: { report: any }) {
+  const rows = report.ageGenderRows || [];
+  const ageGroups = report.ageGroups || [];
+  const totals = ageGroups.map((group: string) => {
+    const total = rows.reduce(
+      (sum: { female: number; male: number }, row: any) => {
+        const cell = row.cells.find((item: any) => item.ageGroup === group);
+        return {
+          female: sum.female + (cell?.female || 0),
+          male: sum.male + (cell?.male || 0),
+        };
+      },
+      { female: 0, male: 0 },
+    );
+    return { ageGroup: group, ...total };
+  });
+  const totalFemale = rows.reduce((sum: number, row: any) => sum + row.totalFemale, 0);
+  const totalMale = rows.reduce((sum: number, row: any) => sum + row.totalMale, 0);
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-display text-surface-900">Нас, хүйсээр нэгтгэсэн тайлан</h2>
+          <p className="mt-1 text-xs text-surface-500">Загварын дагуу насны бүлэг бүрийг эм/эр баганаар харуулна.</p>
+        </div>
+        <p className="text-xs font-medium text-surface-500">{report.month}</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-[1180px] border-collapse text-xs">
+          <thead>
+            <tr>
+              <th rowSpan={2} className="sticky left-0 z-10 w-48 border border-surface-300 bg-white px-2 py-2 text-left font-semibold text-surface-700">
+                Үзүүлэлт
+              </th>
+              {ageGroups.map((group: string) => (
+                <th key={group} colSpan={2} className="border border-surface-300 bg-surface-50 px-2 py-2 text-center font-semibold text-surface-700">
+                  {group}
+                </th>
+              ))}
+              <th colSpan={3} className="border border-surface-300 bg-brand-50 px-2 py-2 text-center font-semibold text-brand-800">
+                Нийт
+              </th>
+            </tr>
+            <tr>
+              {ageGroups.map((group: string) => (
+                <Fragment key={group}>
+                  <th className="border border-surface-300 bg-surface-50 px-2 py-1 text-center font-medium text-surface-500">эм</th>
+                  <th className="border border-surface-300 bg-surface-50 px-2 py-1 text-center font-medium text-surface-500">эр</th>
+                </Fragment>
+              ))}
+              <th className="border border-surface-300 bg-brand-50 px-2 py-1 text-center font-medium text-brand-700">эм</th>
+              <th className="border border-surface-300 bg-brand-50 px-2 py-1 text-center font-medium text-brand-700">эр</th>
+              <th className="border border-surface-300 bg-brand-50 px-2 py-1 text-center font-medium text-brand-700">бүгд</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={(ageGroups.length * 2) + 4} className="border border-surface-300 px-3 py-8 text-center text-surface-400">
+                  Мэдээлэл байхгүй
+                </td>
+              </tr>
+            ) : (
+              rows.map((row: any) => (
+                <tr key={row.label} className="hover:bg-surface-50">
+                  <th className="sticky left-0 z-10 border border-surface-300 bg-white px-2 py-2 text-left font-medium text-surface-700">
+                    {row.label}
+                  </th>
+                  {ageGroups.map((group: string) => {
+                    const cell = row.cells.find((item: any) => item.ageGroup === group) || { female: 0, male: 0 };
+                    return (
+                      <Fragment key={group}>
+                        <td className="border border-surface-300 px-2 py-2 text-center text-surface-700">{cell.female || ''}</td>
+                        <td className="border border-surface-300 px-2 py-2 text-center text-surface-700">{cell.male || ''}</td>
+                      </Fragment>
+                    );
+                  })}
+                  <td className="border border-surface-300 bg-brand-50/50 px-2 py-2 text-center font-semibold text-surface-900">{row.totalFemale || ''}</td>
+                  <td className="border border-surface-300 bg-brand-50/50 px-2 py-2 text-center font-semibold text-surface-900">{row.totalMale || ''}</td>
+                  <td className="border border-surface-300 bg-brand-50/50 px-2 py-2 text-center font-semibold text-surface-900">{row.total || ''}</td>
+                </tr>
+              ))
+            )}
+            {rows.length > 0 && (
+              <tr>
+                <th className="sticky left-0 z-10 border border-surface-300 bg-surface-100 px-2 py-2 text-left font-semibold text-surface-900">
+                  Нийт
+                </th>
+                {totals.map((cell: any) => (
+                  <Fragment key={cell.ageGroup}>
+                    <td className="border border-surface-300 bg-surface-100 px-2 py-2 text-center font-semibold text-surface-900">{cell.female || ''}</td>
+                    <td className="border border-surface-300 bg-surface-100 px-2 py-2 text-center font-semibold text-surface-900">{cell.male || ''}</td>
+                  </Fragment>
+                ))}
+                <td className="border border-surface-300 bg-brand-100 px-2 py-2 text-center font-semibold text-brand-900">{totalFemale || ''}</td>
+                <td className="border border-surface-300 bg-brand-100 px-2 py-2 text-center font-semibold text-brand-900">{totalMale || ''}</td>
+                <td className="border border-surface-300 bg-brand-100 px-2 py-2 text-center font-semibold text-brand-900">{totalFemale + totalMale || ''}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -67,6 +174,8 @@ export default function MonthlyReportPage() {
               <p className="text-2xl font-display text-surface-900 mt-1">{report.completedVisits}</p>
             </div>
           </div>
+
+          <AgeGenderMatrix report={report} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <ReportTable title="Насны бүлгээр" rows={report.byAgeGroup} />

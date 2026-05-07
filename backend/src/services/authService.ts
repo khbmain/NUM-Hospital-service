@@ -51,7 +51,8 @@ export async function loginUser(
   { phone, password }: { phone: string; password: string },
   ctx: ContextType
 ) {
-  const user = await User.findOne({ phone });
+  const normalizedPhone = phone.trim();
+  const user = await User.findOne({ phone: normalizedPhone });
   if (!user) throw new UserInputError("Хэрэглэгч олдсонгүй");
   if (user.status === "suspended")
     throw new UserInputError("Бүртгэл түр хаагдсан байна");
@@ -284,9 +285,15 @@ export async function sendEmailLoginOTP(
 ) {
   const normalizedEmail = email.trim().toLowerCase();
   assertAllowedPatientEmail(normalizedEmail);
-  const { user } = await ensurePatientAccountByEmail(normalizedEmail);
-  if (user.status === "suspended") {
+
+  const emailRegex = new RegExp(`^${escapeRegex(normalizedEmail)}$`, "i");
+  const existingUser = await User.findOne({ email: emailRegex });
+  if (existingUser?.status === "suspended") {
     throw new UserInputError("Бүртгэл түр хаагдсан байна");
+  }
+
+  if (existingUser && existingUser.role !== "patient") {
+    throw new UserInputError("Энэ имэйл patient порталд тохирохгүй байна");
   }
 
   const otp = generateOtp(4);
@@ -296,7 +303,7 @@ export async function sendEmailLoginOTP(
   });
 
   await sendEmailOtp({ to: normalizedEmail, otp });
-  return "OTP код имэйлээр илгээгдлээ";
+  return "OTP кодыг имэйл рүү илгээх хүсэлтийг хүлээн авлаа";
 }
 
 export async function loginWithEmailOTP(
@@ -317,12 +324,7 @@ export async function loginWithEmailOTP(
     throw new UserInputError("OTP-ийн хугацаа дууссан");
   }
 
-  const emailRegex = new RegExp(`^${escapeRegex(normalizedEmail)}$`, "i");
-  const user = await User.findOne({ email: emailRegex });
-  if (!user) {
-    emailOtpStore.delete(normalizedEmail);
-    throw new UserInputError("Хэрэглэгч олдсонгүй");
-  }
+  const { user } = await ensurePatientAccountByEmail(normalizedEmail);
 
   if (user.role !== "patient") {
     emailOtpStore.delete(normalizedEmail);

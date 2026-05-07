@@ -23,7 +23,7 @@ export async function searchPatients(
   { query, page = 1, limit = 20 }: { query: string; page?: number; limit?: number },
   ctx: ContextType
 ) {
-  requireRole("doctor", "nurse", "superadmin")(ctx);
+  requireRole("doctor", "nurse", "receptionist", "superadmin")(ctx);
 
   const trimmedQuery = query.trim();
   const filter = trimmedQuery
@@ -57,7 +57,7 @@ export async function getPatient(
   { _id }: { _id: string },
   ctx: ContextType
 ) {
-  requireRole("doctor", "nurse", "superadmin")(ctx);
+  requireRole("doctor", "nurse", "receptionist", "superadmin")(ctx);
   return Patient.findById(_id).populate("userId registeredBy");
 }
 
@@ -66,7 +66,7 @@ export async function getPatientByRegistration(
   { registrationNumber }: { registrationNumber: string },
   ctx: ContextType
 ) {
-  requireRole("doctor", "nurse", "superadmin")(ctx);
+  requireRole("doctor", "nurse", "receptionist", "superadmin")(ctx);
   return Patient.findOne({ registrationNumber }).populate("userId registeredBy");
 }
 
@@ -86,17 +86,22 @@ export async function createPatient(
   { input }: { input: any },
   ctx: ContextType
 ) {
-  requireRole("doctor", "superadmin")(ctx);
+  requireRole("doctor", "receptionist", "superadmin")(ctx);
 
-  // Generate unique registration number
-  let registrationNumber = generateRegistrationNumber();
-  // Ensure uniqueness (rare collision)
-  while (await Patient.findOne({ registrationNumber })) {
+  let registrationNumber = input.registrationNumber?.trim();
+  if (registrationNumber) {
+    const existing = await Patient.findOne({ registrationNumber });
+    if (existing) throw new UserInputError("Энэ регистрийн дугаартай өвчтөн бүртгэлтэй байна");
+  } else {
     registrationNumber = generateRegistrationNumber();
+    while (await Patient.findOne({ registrationNumber })) {
+      registrationNumber = generateRegistrationNumber();
+    }
   }
 
+  const { registrationNumber: _registrationNumber, ...patientInput } = input;
   const patient = new Patient({
-    ...input,
+    ...patientInput,
     registrationNumber,
     registeredBy: ctx._id,
   });
@@ -144,6 +149,13 @@ export async function upsertMyPatientProfile(
   ctx: ContextType
 ) {
   requireAuth(ctx);
+
+  const registrationNumber = input.registrationNumber?.trim().toUpperCase();
+  if (!/^[А-ЯЁӨҮ]{2}[0-9]{8}$/.test(registrationNumber || "")) {
+    throw new UserInputError("Регистрийн дугаар 2 кирилл үсэг + 8 цифртэй байна. Жишээ: УБ12345678");
+  }
+
+  input.registrationNumber = registrationNumber;
 
   const existingByRegistration = input.registrationNumber
     ? await Patient.findOne({ registrationNumber: input.registrationNumber })

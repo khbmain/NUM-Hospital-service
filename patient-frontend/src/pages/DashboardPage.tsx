@@ -43,36 +43,44 @@ export default function DashboardPage() {
         <p className="text-surface-500 mt-1">NUM эмнэлгийн өвчтөний портал</p>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Цаг захиалах', icon: Plus, path: '/appointments/book', color: 'bg-brand-500 text-white' },
-          { label: 'Миний цагууд', icon: Calendar, path: '/appointments', color: 'bg-blue-50 text-blue-700' },
-          { label: 'Үзлэгийн түүх', icon: Stethoscope, path: '/visits', color: 'bg-purple-50 text-purple-700' },
-          { label: 'Жорын жагсаалт', icon: Pill, path: '/prescriptions', color: 'bg-amber-50 text-amber-700' },
-        ].map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={`card flex flex-col items-center justify-center gap-2.5 py-5 hover:shadow-md transition-shadow group ${
-              item.path === '/appointments/book' ? '!bg-brand-500 !border-brand-500 text-white' : ''
-            }`}
-          >
-            <item.icon
-              size={22}
-              className={item.path === '/appointments/book' ? 'text-white' : 'text-surface-500 group-hover:text-brand-600 transition-colors'}
-            />
-            <span className={`text-sm font-medium ${item.path === '/appointments/book' ? 'text-white' : 'text-surface-700'}`}>
-              {item.label}
-            </span>
+      {/* Primary action */}
+      <div className="card !p-4 md:!p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+              <Calendar size={22} />
+            </div>
+            <div>
+              <h2 className="text-base font-display text-surface-900">Цаг захиалга</h2>
+              <p className="mt-0.5 text-sm text-surface-500">Эмнэлгийн үйлчилгээ, өдөр, цаг сонгоно.</p>
+            </div>
+          </div>
+          <Link to="/appointments/book" className="btn-primary w-full text-sm md:w-auto">
+            <Plus size={14} /> Цаг захиалах
           </Link>
-        ))}
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-surface-200 pt-4">
+          {[
+            { label: 'Миний цагууд', icon: Calendar, path: '/appointments' },
+            { label: 'Үзлэгийн түүх', icon: Stethoscope, path: '/visits' },
+            { label: 'Жор', icon: Pill, path: '/prescriptions' },
+          ].map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className="flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border border-surface-200 bg-surface-50 px-2 text-center text-xs font-medium text-surface-600 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+            >
+              <item.icon size={17} />
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Upcoming Appointments */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-display text-surface-900">Ойрын цагууд</h2>
+          <h2 className="text-lg font-display text-surface-900">Товлосон цагууд</h2>
           <Link to="/appointments" className="text-sm text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1">
             Бүгдийг харах <ArrowRight size={14} />
           </Link>
@@ -83,10 +91,7 @@ export default function DashboardPage() {
         ) : appointments.length === 0 ? (
           <div className="card text-center py-10">
             <Calendar size={32} className="text-surface-300 mx-auto mb-3" />
-            <p className="text-surface-500 text-sm mb-3">Товлосон цаг байхгүй</p>
-            <Link to="/appointments/book" className="btn-primary text-sm">
-              <Plus size={14} /> Цаг захиалах
-            </Link>
+            <p className="text-surface-500 text-sm">Товлосон цаг байхгүй</p>
           </div>
         ) : (
           <div className="space-y-3">

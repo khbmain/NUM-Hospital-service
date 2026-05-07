@@ -4,6 +4,7 @@ import { client } from './graphql/client';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import PatientLayout from './components/layout/PatientLayout';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import { ToastProvider } from './components/common/ToastProvider';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -59,7 +60,9 @@ export default function App() {
     <ApolloProvider client={client}>
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <ToastProvider>
+            <AppRoutes />
+          </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
     </ApolloProvider>

@@ -1,13 +1,17 @@
+import { useEffect } from 'react';
 import { useQuery } from '@apollo/client';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { MY_APPOINTMENTS } from '../graphql/queries';
 import StatusBadge from '../components/common/StatusBadge';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import EmptyState from '../components/common/EmptyState';
-import { Calendar, Plus, Clock, CheckCircle } from 'lucide-react';
+import { useToast } from '../components/common/ToastProvider';
+import { Calendar, Plus, Clock } from 'lucide-react';
 
 export default function AppointmentListPage() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const showSuccess = location.state?.success;
 
   const { data, loading } = useQuery(MY_APPOINTMENTS, {
@@ -26,22 +30,22 @@ export default function AppointmentListPage() {
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('mn-MN', { year: 'numeric', month: 'short', day: 'numeric' });
 
+  useEffect(() => {
+    if (!showSuccess) return;
+    toast('Цаг амжилттай захиалагдлаа!', 'success');
+    navigate('.', { replace: true, state: {} });
+  }, [navigate, showSuccess, toast]);
+
   if (loading) return <LoadingSpinner text="Ачааллаж байна..." />;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-display text-surface-900">Цаг захиалга</h1>
+        <h1 className="text-2xl font-display text-surface-900">Миний цагууд</h1>
         <Link to="/appointments/book" className="btn-primary text-sm">
-          <Plus size={14} /> Цаг захиалах
+          <Plus size={14} /> Шинэ цаг
         </Link>
       </div>
-
-      {showSuccess && (
-        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm flex items-center gap-2">
-          <CheckCircle size={16} /> Цаг амжилттай захиалагдлаа!
-        </div>
-      )}
 
       <section>
         <h2 className="text-sm font-medium text-surface-500 uppercase tracking-wider mb-3">
@@ -51,11 +55,6 @@ export default function AppointmentListPage() {
           <EmptyState
             icon={<Calendar size={40} />}
             title="Товлосон цаг байхгүй"
-            action={
-              <Link to="/appointments/book" className="btn-primary text-sm">
-                <Plus size={14} /> Цаг захиалах
-              </Link>
-            }
           />
         ) : (
           <div className="space-y-3">

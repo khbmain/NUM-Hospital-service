@@ -7,7 +7,8 @@ import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Icd11Picker from '../../components/icd/Icd11Picker';
 import AppModal from '../../components/common/AppModal';
-import { ArrowLeft, Save, CheckCircle, Heart, FileText, Pill, Stethoscope, Plus, X, History, ClipboardList } from 'lucide-react';
+import { useToast } from '../../components/common/ToastProvider';
+import { ArrowLeft, Save, CheckCircle, Heart, FileText, Pill, Stethoscope, Plus, X, History, ClipboardList, Eye } from 'lucide-react';
 
 type Tab = 'vitals' | 'exam' | 'diagnosis' | 'prescription';
 
@@ -77,7 +78,7 @@ const emptyRxItem = {
 };
 
 function toOptionalFloat(value: string) {
-  const trimmed = value.trim();
+  const trimmed = value.trim().replace(',', '.');
   if (!trimmed) return undefined;
   const parsed = Number.parseFloat(trimmed);
   return Number.isFinite(parsed) ? parsed : undefined;
@@ -113,11 +114,11 @@ function formatDate(value?: string) {
 export default function ExaminePage() {
   const { visitId } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>('vitals');
   const [savingSection, setSavingSection] = useState<string | null>(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [completeOpen, setCompleteOpen] = useState(false);
+  const [selectedHistoryVisit, setSelectedHistoryVisit] = useState<any | null>(null);
 
   const { data, loading, refetch } = useQuery(GET_VISIT, { variables: { id: visitId }, skip: !visitId });
   const [updateVisit] = useMutation(UPDATE_VISIT);
@@ -178,8 +179,7 @@ export default function ExaminePage() {
   }, [visit?._id]);
 
   const showSuccess = (message: string) => {
-    setError('');
-    setSuccess(message);
+    toast(message, 'success');
   };
 
   const handleSaveVitals = async () => {
@@ -205,7 +205,7 @@ export default function ExaminePage() {
       await refetch();
       showSuccess('Амин үзүүлэлт хадгалагдлаа.');
     } catch (err: any) {
-      setError(err.message);
+      toast(err.message || 'Амин үзүүлэлт хадгалахад алдаа гарлаа.', 'error');
     } finally {
       setSavingSection(null);
     }
@@ -218,7 +218,7 @@ export default function ExaminePage() {
       await refetch();
       showSuccess('Үзлэгийн тэмдэглэл хадгалагдлаа.');
     } catch (err: any) {
-      setError(err.message);
+      toast(err.message || 'Үзлэгийн тэмдэглэл хадгалахад алдаа гарлаа.', 'error');
     } finally {
       setSavingSection(null);
     }
@@ -233,7 +233,7 @@ export default function ExaminePage() {
       await refetch();
       showSuccess('Онош нэмэгдлээ.');
     } catch (err: any) {
-      setError(err.message);
+      toast(err.message || 'Онош нэмэхэд алдаа гарлаа.', 'error');
     } finally {
       setSavingSection(null);
     }
@@ -254,7 +254,7 @@ export default function ExaminePage() {
       }));
 
     if (items.length === 0) {
-      setError('Дор хаяж нэг эм оруулна уу.');
+      toast('Дор хаяж нэг эм оруулна уу.', 'error');
       return;
     }
 
@@ -266,7 +266,7 @@ export default function ExaminePage() {
       await refetch();
       showSuccess('Жор бичигдлээ.');
     } catch (err: any) {
-      setError(err.message);
+      toast(err.message || 'Жор бичихэд алдаа гарлаа.', 'error');
     } finally {
       setSavingSection(null);
     }
@@ -278,7 +278,7 @@ export default function ExaminePage() {
       await completeVisit({ variables: { id: visitId } });
       navigate('/doctor/queue');
     } catch (err: any) {
-      setError(err.message);
+      toast(err.message || 'Үзлэг дуусгахад алдаа гарлаа.', 'error');
       setCompleteOpen(false);
       setSavingSection(null);
     }
@@ -294,15 +294,15 @@ export default function ExaminePage() {
     { key: 'prescription', label: 'Жор', icon: Pill },
   ];
 
-  const vitalFields: { key: keyof VitalForm; label: string; placeholder: string }[] = [
-    { key: 'temperature', label: 'Температур (C)', placeholder: '36.6' },
+  const vitalFields: { key: keyof VitalForm; label: string; placeholder: string; decimal?: boolean }[] = [
+    { key: 'temperature', label: 'Температур (C)', placeholder: '36.6', decimal: true },
     { key: 'bloodPressureSystolic', label: 'Даралт sys', placeholder: '120' },
     { key: 'bloodPressureDiastolic', label: 'Даралт dia', placeholder: '80' },
     { key: 'heartRate', label: 'Зүрхний цохилт', placeholder: '72' },
     { key: 'respiratoryRate', label: 'Амьсгалын давтамж', placeholder: '16' },
-    { key: 'oxygenSaturation', label: 'SpO2 (%)', placeholder: '98' },
-    { key: 'weight', label: 'Жин (кг)', placeholder: '70' },
-    { key: 'height', label: 'Өндөр (см)', placeholder: '170' },
+    { key: 'oxygenSaturation', label: 'SpO2 (%)', placeholder: '98', decimal: true },
+    { key: 'weight', label: 'Жин (кг)', placeholder: '70.5', decimal: true },
+    { key: 'height', label: 'Өндөр (см)', placeholder: '170.5', decimal: true },
   ];
 
   const examFields: { key: keyof ExamForm; label: string; rows: number }[] = [
@@ -338,24 +338,6 @@ export default function ExaminePage() {
           </button>
         )}
       </div>
-
-      {error && (
-        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center justify-between gap-3">
-          <span>{error}</span>
-          <button type="button" onClick={() => setError('')} className="text-red-500 hover:text-red-700" aria-label="Алдаа хаах">
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
-      {success && (
-        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm flex items-center justify-between gap-3">
-          <span>{success}</span>
-          <button type="button" onClick={() => setSuccess('')} className="text-emerald-500 hover:text-emerald-700" aria-label="Мэдэгдэл хаах">
-            <X size={14} />
-          </button>
-        </div>
-      )}
 
       {patient?.allergies?.length > 0 && (
         <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
@@ -398,6 +380,9 @@ export default function ExaminePage() {
                       ))}
                     </div>
                   )}
+                  <button type="button" onClick={() => setSelectedHistoryVisit(item)} className="btn-ghost mt-3 text-xs">
+                    <Eye size={13} /> Дэлгэрэнгүй
+                  </button>
                 </div>
               ))}
             </div>
@@ -470,8 +455,9 @@ export default function ExaminePage() {
               <div key={field.key}>
                 <label className="block text-xs font-medium text-surface-600 mb-1">{field.label}</label>
                 <input
-                  type="number"
-                  step="any"
+                  type={field.decimal ? 'text' : 'number'}
+                  inputMode={field.decimal ? 'decimal' : 'numeric'}
+                  step={field.decimal ? undefined : 1}
                   placeholder={field.placeholder}
                   value={vitals[field.key]}
                   onChange={(e) => setVitals({ ...vitals, [field.key]: e.target.value })}
@@ -716,6 +702,122 @@ export default function ExaminePage() {
           </form>
         </div>
       )}
+
+      <AppModal
+        open={Boolean(selectedHistoryVisit)}
+        title="Өмнөх үзлэгийн дэлгэрэнгүй"
+        description={
+          selectedHistoryVisit
+            ? `${formatDate(selectedHistoryVisit.visitDate)} · ${
+                selectedHistoryVisit.doctor?.userId?.lastname?.charAt(0) || ''
+              }.${selectedHistoryVisit.doctor?.userId?.firstname || 'Эмч'}`
+            : undefined
+        }
+        cancelLabel="Хаах"
+        maxWidthClassName="max-w-3xl"
+        onClose={() => setSelectedHistoryVisit(null)}
+      >
+        {selectedHistoryVisit && (
+          <div className="max-h-[70vh] overflow-y-auto pr-1 space-y-4 text-sm">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-lg border border-surface-200 bg-surface-50 p-3">
+                <p className="text-xs font-medium uppercase tracking-wider text-surface-400">Гол зовиур</p>
+                <p className="mt-1 text-surface-800">{selectedHistoryVisit.chiefComplaint || '-'}</p>
+              </div>
+              <div className="rounded-lg border border-surface-200 bg-surface-50 p-3">
+                <p className="text-xs font-medium uppercase tracking-wider text-surface-400">Төлөв</p>
+                <div className="mt-1"><StatusBadge status={selectedHistoryVisit.status} /></div>
+              </div>
+            </div>
+
+            {[
+              ['Өвчний түүх', selectedHistoryVisit.historyOfPresentIllness],
+              ['Биеийн үзлэг', selectedHistoryVisit.physicalExamination],
+              ['Дүгнэлт', selectedHistoryVisit.assessment],
+              ['Төлөвлөгөө', selectedHistoryVisit.plan],
+              ['Нэмэлт тэмдэглэл', selectedHistoryVisit.notes],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-surface-200 p-3">
+                <p className="text-xs font-medium uppercase tracking-wider text-surface-400">{label}</p>
+                <p className="mt-1 whitespace-pre-wrap text-surface-700">{value || '-'}</p>
+              </div>
+            ))}
+
+            <div className="rounded-lg border border-surface-200 p-3">
+              <p className="text-xs font-medium uppercase tracking-wider text-surface-400">Амин үзүүлэлт</p>
+              {selectedHistoryVisit.vitalSigns ? (
+                <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                  {[
+                    ['Температур', selectedHistoryVisit.vitalSigns.temperature ? `${selectedHistoryVisit.vitalSigns.temperature} C` : undefined],
+                    [
+                      'Даралт',
+                      selectedHistoryVisit.vitalSigns.bloodPressureSystolic || selectedHistoryVisit.vitalSigns.bloodPressureDiastolic
+                        ? `${selectedHistoryVisit.vitalSigns.bloodPressureSystolic || '-'} / ${selectedHistoryVisit.vitalSigns.bloodPressureDiastolic || '-'}`
+                        : undefined,
+                    ],
+                    ['Пульс', selectedHistoryVisit.vitalSigns.heartRate],
+                    ['Амьсгал', selectedHistoryVisit.vitalSigns.respiratoryRate],
+                    ['SpO2', selectedHistoryVisit.vitalSigns.oxygenSaturation ? `${selectedHistoryVisit.vitalSigns.oxygenSaturation}%` : undefined],
+                    ['Жин', selectedHistoryVisit.vitalSigns.weight ? `${selectedHistoryVisit.vitalSigns.weight} кг` : undefined],
+                    ['Өндөр', selectedHistoryVisit.vitalSigns.height ? `${selectedHistoryVisit.vitalSigns.height} см` : undefined],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-md bg-surface-50 px-3 py-2">
+                      <p className="text-[11px] text-surface-400">{label}</p>
+                      <p className="mt-0.5 font-medium text-surface-800">{value || '-'}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-1 text-surface-500">Амин үзүүлэлт бүртгээгүй.</p>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-surface-200 p-3">
+              <p className="text-xs font-medium uppercase tracking-wider text-surface-400">Онош</p>
+              {selectedHistoryVisit.diagnoses?.length > 0 ? (
+                <div className="mt-2 space-y-2">
+                  {selectedHistoryVisit.diagnoses.map((diagnosis: any) => (
+                    <div key={diagnosis._id} className="rounded-md bg-purple-50 px-3 py-2">
+                      <p className="font-medium text-surface-800">
+                        {diagnosis.name}
+                        {diagnosis.icdCode && <span className="ml-2 text-xs text-surface-500">({diagnosis.icdCode})</span>}
+                      </p>
+                      {diagnosis.notes && <p className="mt-1 text-xs text-surface-600">{diagnosis.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-1 text-surface-500">Онош бүртгээгүй.</p>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-surface-200 p-3">
+              <p className="text-xs font-medium uppercase tracking-wider text-surface-400">Жор</p>
+              {selectedHistoryVisit.prescriptions?.length > 0 ? (
+                <div className="mt-2 space-y-2">
+                  {selectedHistoryVisit.prescriptions.map((rx: any) => (
+                    <div key={rx._id} className="rounded-md bg-amber-50 px-3 py-2">
+                      <p className="font-medium text-surface-800">{rx.prescriptionNumber}</p>
+                      <div className="mt-1 space-y-1">
+                        {rx.items?.map((item: any, index: number) => (
+                          <p key={index} className="text-xs text-surface-700">
+                            {item.medicationName} · {item.dosage} · {item.frequency}
+                            {item.duration && ` · ${item.duration}`}
+                            {item.instructions && ` · ${item.instructions}`}
+                          </p>
+                        ))}
+                      </div>
+                      {rx.notes && <p className="mt-2 text-xs text-surface-600">{rx.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-1 text-surface-500">Жор бүртгээгүй.</p>
+              )}
+            </div>
+          </div>
+        )}
+      </AppModal>
 
       <AppModal
         open={completeOpen}

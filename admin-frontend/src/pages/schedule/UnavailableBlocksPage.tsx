@@ -5,6 +5,7 @@ import { CANCEL_UNAVAILABLE_BLOCK, CREATE_UNAVAILABLE_BLOCK, UPDATE_UNAVAILABLE_
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { CalendarX, Wrench, UserX } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../components/common/ToastProvider';
 
 function toLocalInputValue(date: Date) {
   const offset = date.getTimezoneOffset() * 60000;
@@ -16,7 +17,8 @@ export default function UnavailableBlocksPage() {
   const now = new Date();
   const defaultStart = () => toLocalInputValue(new Date());
   const defaultEnd = () => toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000));
-  const canManageAnySchedule = hasRole('data_operator', 'superadmin');
+  const canManageAnySchedule = hasRole('superadmin');
+  const { toast } = useToast();
   const [targetType, setTargetType] = useState<'resource' | 'staff'>('resource');
   const [resourceId, setResourceId] = useState('');
   const [staffId, setStaffId] = useState('');
@@ -24,7 +26,6 @@ export default function UnavailableBlocksPage() {
   const [endAt, setEndAt] = useState(toLocalInputValue(new Date(now.getTime() + 60 * 60 * 1000)));
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
-  const [message, setMessage] = useState('');
   const [editingBlock, setEditingBlock] = useState<any>(null);
 
   const dayStart = new Date(`${startAt.slice(0, 10)}T00:00:00`).toISOString();
@@ -64,23 +65,26 @@ export default function UnavailableBlocksPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage('');
-    const result = await createBlock({
-      variables: {
-          input: {
-          resourceId: canManageAnySchedule && targetType === 'resource' ? resourceId : undefined,
-          staffId: canManageAnySchedule && targetType === 'staff' ? staffId : effectiveStaffId,
-          startAt: new Date(startAt).toISOString(),
-          endAt: new Date(endAt).toISOString(),
-          reason,
-          note: note || undefined,
+    try {
+      const result = await createBlock({
+        variables: {
+            input: {
+            resourceId: canManageAnySchedule && targetType === 'resource' ? resourceId : undefined,
+            staffId: canManageAnySchedule && targetType === 'staff' ? staffId : effectiveStaffId,
+            startAt: new Date(startAt).toISOString(),
+            endAt: new Date(endAt).toISOString(),
+            reason,
+            note: note || undefined,
+          },
         },
-      },
-    });
-    const cancelled = result.data?.createUnavailableBlock?.cancelledAppointments?.length || 0;
-    setMessage(`Хязгаарлалт үүслээ. ${cancelled} цаг цуцлагдаж, өвчтөнүүдэд мэдэгдэл илгээгдсэн.`);
-    resetForm(true);
-    await refetch();
+      });
+      const cancelled = result.data?.createUnavailableBlock?.cancelledAppointments?.length || 0;
+      toast(`Хязгаарлалт үүслээ. ${cancelled} цаг цуцлагдаж, өвчтөнүүдэд мэдэгдэл илгээгдсэн.`, 'success');
+      resetForm(true);
+      await refetch();
+    } catch (err: any) {
+      toast(err.message || 'Хугацаа хаахад алдаа гарлаа.', 'error');
+    }
   };
 
   const startEdit = (block: any) => {
@@ -92,31 +96,38 @@ export default function UnavailableBlocksPage() {
     setEndAt(toLocalInputValue(new Date(block.endAt)));
     setReason(block.reason || '');
     setNote(block.note || '');
-    setMessage('');
   };
 
   const saveEdit = async () => {
-    await updateBlock({
-      variables: {
-        id: editingBlock._id,
-        input: {
-          startAt: new Date(startAt).toISOString(),
-          endAt: new Date(endAt).toISOString(),
-          reason,
-          note: note || undefined,
+    try {
+      await updateBlock({
+        variables: {
+          id: editingBlock._id,
+          input: {
+            startAt: new Date(startAt).toISOString(),
+            endAt: new Date(endAt).toISOString(),
+            reason,
+            note: note || undefined,
+          },
         },
-      },
-    });
-    setEditingBlock(null);
-    resetForm();
-    setMessage('Хаасан хугацаа шинэчлэгдлээ.');
-    await refetch();
+      });
+      setEditingBlock(null);
+      resetForm();
+      toast('Хаасан хугацаа шинэчлэгдлээ.', 'success');
+      await refetch();
+    } catch (err: any) {
+      toast(err.message || 'Хаасан хугацаа шинэчлэхэд алдаа гарлаа.', 'error');
+    }
   };
 
   const reopenBlock = async (id: string) => {
-    await cancelBlock({ variables: { id } });
-    setMessage('Хаасан хугацааг буцааж нээлээ.');
-    await refetch();
+    try {
+      await cancelBlock({ variables: { id } });
+      toast('Хаасан хугацааг буцааж нээлээ.', 'success');
+      await refetch();
+    } catch (err: any) {
+      toast(err.message || 'Хаасан хугацааг нээхэд алдаа гарлаа.', 'error');
+    }
   };
 
   return (
@@ -131,8 +142,6 @@ export default function UnavailableBlocksPage() {
             : 'Өөрийн боломжгүй хугацааг хаахад тухайн хугацаанд өвчтөн цаг авах боломжгүй болно.'}
         </p>
       </div>
-
-      {message && <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-700">{message}</div>}
 
       <form onSubmit={submit} className="card space-y-4">
         {canManageAnySchedule && <div className="inline-flex rounded-lg border border-surface-200 bg-surface-50 p-1">

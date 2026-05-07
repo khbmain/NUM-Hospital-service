@@ -29,16 +29,16 @@ type NavItem = {
 };
 
 const navigation: NavItem[] = [
-  { label: "Хяналтын самбар", icon: LayoutDashboard, path: "/", roles: ["data_operator", "doctor", "nurse", "superadmin"] },
-  { label: "Өвчтөн", icon: Users, path: "/patients", roles: ["data_operator", "doctor", "nurse", "superadmin"] },
-  { label: "Цаг захиалга", icon: Calendar, path: "/appointments", roles: ["data_operator", "doctor", "superadmin"] },
-  { label: "Цаг хаах", icon: Calendar, path: "/schedule/unavailable", roles: ["data_operator", "doctor", "nurse", "superadmin"] },
+  { label: "Хяналтын самбар", icon: LayoutDashboard, path: "/", roles: ["receptionist", "doctor", "nurse", "superadmin"] },
+  { label: "Өвчтөн", icon: Users, path: "/patients", roles: ["receptionist", "doctor", "nurse", "superadmin"] },
+  { label: "Цаг захиалга", icon: Calendar, path: "/appointments", roles: ["receptionist", "doctor", "nurse", "superadmin"] },
+  { label: "Цаг хаах", icon: Calendar, path: "/schedule/unavailable", roles: ["doctor", "nurse", "superadmin"] },
   { label: "Эмчийн самбар", icon: Stethoscope, path: "/doctor/queue", roles: ["doctor"] },
   { label: "Сувилагч", icon: Heart, path: "/nurse/queue", roles: ["nurse"] },
   { label: "Эм, материал", icon: Package, path: "/inventory", roles: ["nurse", "superadmin"] },
   { label: "Ажилтан", icon: UserCog, path: "/staff", roles: ["superadmin"] },
   { label: "Үйлчилгээ", icon: Boxes, path: "/services", roles: ["superadmin"] },
-  { label: "Тайлан", icon: BarChart3, path: "/reports", roles: ["data_operator", "doctor", "superadmin"] },
+  { label: "Тайлан", icon: BarChart3, path: "/reports", roles: ["doctor", "superadmin"] },
   { label: "Аудит", icon: Shield, path: "/audit", roles: ["superadmin"] },
   { label: "Тохиргоо", icon: Settings, path: "/settings", roles: ["superadmin"] }
 ];
@@ -47,14 +47,14 @@ const ROLE_LABELS: Record<string, string> = {
   superadmin: "Админ",
   doctor: "Эмч",
   nurse: "Сувилагч",
-  data_operator: "Бүртгэл"
+  receptionist: "Цаг бүртгэгч",
 };
 
 const ROLE_COLORS: Record<string, string> = {
   superadmin: "bg-amber-500",
   doctor: "bg-purple-500",
   nurse: "bg-pink-500",
-  data_operator: "bg-teal-500"
+  receptionist: "bg-teal-500",
 };
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

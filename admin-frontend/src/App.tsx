@@ -4,6 +4,7 @@ import { client } from './graphql/client';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import AdminLayout from './components/layout/AdminLayout';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import { ToastProvider } from './components/common/ToastProvider';
 
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -41,12 +42,12 @@ function AppRoutes() {
       <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
 
       {/* Patients */}
-      <Route path="/patients" element={<ProtectedRoute roles={['doctor','nurse','superadmin']}><PatientListPage /></ProtectedRoute>} />
-      <Route path="/patients/:id" element={<ProtectedRoute roles={['doctor','nurse','superadmin']}><PatientDetailPage /></ProtectedRoute>} />
+      <Route path="/patients" element={<ProtectedRoute roles={['receptionist','doctor','nurse','superadmin']}><PatientListPage /></ProtectedRoute>} />
+      <Route path="/patients/:id" element={<ProtectedRoute roles={['receptionist','doctor','nurse','superadmin']}><PatientDetailPage /></ProtectedRoute>} />
 
       {/* Appointments */}
-      <Route path="/appointments" element={<ProtectedRoute roles={['doctor','superadmin']}><AppointmentListPage /></ProtectedRoute>} />
-      <Route path="/appointments/:id" element={<ProtectedRoute roles={['doctor','superadmin']}><AppointmentDetailPage /></ProtectedRoute>} />
+      <Route path="/appointments" element={<ProtectedRoute roles={['receptionist','doctor','nurse','superadmin']}><AppointmentListPage /></ProtectedRoute>} />
+      <Route path="/appointments/:id" element={<ProtectedRoute roles={['receptionist','doctor','nurse','superadmin']}><AppointmentDetailPage /></ProtectedRoute>} />
       <Route path="/schedule/unavailable" element={<ProtectedRoute roles={['doctor','nurse','superadmin']}><UnavailableBlocksPage /></ProtectedRoute>} />
 
       {/* Doctor */}
@@ -83,7 +84,9 @@ export default function App() {
     <ApolloProvider client={client}>
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <ToastProvider>
+            <AppRoutes />
+          </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
     </ApolloProvider>

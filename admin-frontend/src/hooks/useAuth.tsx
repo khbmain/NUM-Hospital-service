@@ -7,7 +7,7 @@ import { getToken, setToken, removeToken, isAuthenticated as checkAuth } from '.
 import { client } from '../graphql/client';
 import type { User } from '../types';
 
-const ADMIN_ROLES = ['doctor', 'nurse', 'superadmin'];
+const ADMIN_ROLES = ['doctor', 'nurse', 'receptionist', 'superadmin'];
 
 interface AuthContextType {
   user: User | null;

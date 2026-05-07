@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { AVAILABLE_SLOTS, GET_DOCTORS, LIST_RESOURCES, LIST_SERVICES, MY_PATIENT_PROFILE } from '../graphql/queries';
 import { CREATE_APPOINTMENT, UPSERT_MY_PATIENT_PROFILE } from '../graphql/mutations';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import EmptyState from '../components/common/EmptyState';
+import { useToast } from '../components/common/ToastProvider';
 import { ArrowLeft, ArrowRight, Check, Clock, CalendarDays, ClipboardList, UserCheck, Activity, Ban, Lock, Utensils } from 'lucide-react';
 
 const steps = ['Миний мэдээлэл', 'Үйлчилгээ', 'Сонголт', 'Өдөр & Цаг', 'Баталгаажуулах'];
@@ -14,7 +16,7 @@ const emptyProfile = {
   lastname: '',
   phone: '',
   email: '',
-  gender: 'male',
+  gender: '',
   birthdate: '',
   bloodType: 'unknown',
   allergies: '',
@@ -28,8 +30,46 @@ const emptyProfile = {
   emergencyContactRelationship: '',
 };
 
+const registrationNumberPattern = /^[А-ЯЁӨҮ]{2}[0-9]{8}$/;
+
 function splitList(value: string) {
   return value.split(',').map(v => v.trim()).filter(Boolean);
+}
+
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function toBookingDate(value: string) {
+  return `${value}T12:00:00.000Z`;
+}
+
+function formatDate(value: string) {
+  if (!value) return '-';
+  return new Date(`${value}T00:00:00`).toLocaleDateString('mn-MN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  });
+}
+
+function isProfileComplete(profile: typeof emptyProfile) {
+  return Boolean(
+    registrationNumberPattern.test(profile.registrationNumber) &&
+    profile.firstname &&
+    profile.lastname &&
+    profile.phone &&
+    profile.gender &&
+    profile.birthdate
+  );
+}
+
+function normalizeRegistrationNumber(value: string) {
+  return value.replace(/\s+/g, '').toUpperCase();
 }
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
@@ -116,15 +156,17 @@ function SlotButton({ slot, selected, onSelect }: { slot: any; selected: boolean
 
 export default function AppointmentBookPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const today = toDateInputValue(new Date());
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState(emptyProfile);
   const [service, setService] = useState<any>(null);
   const [doctor, setDoctor] = useState<any>(null);
   const [resource, setResource] = useState<any>(null);
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(today);
   const [time, setTime] = useState('');
   const [complaint, setComplaint] = useState('');
-  const [error, setError] = useState('');
+  const [profileEditing, setProfileEditing] = useState(true);
 
   const { data: patientData, loading: patientLoading, refetch: refetchProfile } = useQuery(MY_PATIENT_PROFILE);
   const { data: serviceData, loading: serviceLoading } = useQuery(LIST_SERVICES);
@@ -140,7 +182,7 @@ export default function AppointmentBookPage() {
       doctorId: doctor?._id || undefined,
       serviceId: service?._id || undefined,
       resourceId: resource?._id || undefined,
-      date: date ? new Date(date).toISOString() : '',
+      date: date ? toBookingDate(date) : '',
     },
     skip: !service || (!doctor && !resource) || !date,
     fetchPolicy: 'network-only',
@@ -166,44 +208,79 @@ export default function AppointmentBookPage() {
   )
     .map(([reason, count]) => `${reason}: ${count}`)
     .join(' · ');
-  const today = new Date().toISOString().split('T')[0];
-
   useEffect(() => {
     if (!patient) return;
+    const isInitialProfile = !patient.profileCompletedAt;
     setProfile({
-      registrationNumber: patient.registrationNumber || '',
+      registrationNumber: isInitialProfile ? '' : patient.registrationNumber || '',
       firstname: patient.firstname || '',
       lastname: patient.lastname || '',
-      phone: patient.phone || '',
+      phone: isInitialProfile ? '' : patient.phone || '',
       email: patient.email || '',
-      gender: patient.gender || 'male',
-      birthdate: patient.birthdate ? new Date(patient.birthdate).toISOString().split('T')[0] : '',
-      bloodType: patient.bloodType || 'unknown',
-      allergies: patient.allergies?.join(', ') || '',
-      chronicConditions: patient.chronicConditions?.join(', ') || '',
-      regularMedications: patient.regularMedications?.join(', ') || '',
-      medicalWarnings: patient.medicalWarnings?.join(', ') || '',
-      address: patient.address || '',
-      notes: patient.notes || '',
-      emergencyContactName: patient.emergencyContact?.name || '',
-      emergencyContactPhone: patient.emergencyContact?.phone || '',
-      emergencyContactRelationship: patient.emergencyContact?.relationship || '',
+      gender: isInitialProfile ? '' : patient.gender || '',
+      birthdate: isInitialProfile ? '' : patient.birthdate ? toDateInputValue(new Date(patient.birthdate)) : '',
+      bloodType: isInitialProfile ? 'unknown' : patient.bloodType || 'unknown',
+      allergies: isInitialProfile ? '' : patient.allergies?.join(', ') || '',
+      chronicConditions: isInitialProfile ? '' : patient.chronicConditions?.join(', ') || '',
+      regularMedications: isInitialProfile ? '' : patient.regularMedications?.join(', ') || '',
+      medicalWarnings: isInitialProfile ? '' : patient.medicalWarnings?.join(', ') || '',
+      address: isInitialProfile ? '' : patient.address || '',
+      notes: isInitialProfile ? '' : patient.notes || '',
+      emergencyContactName: isInitialProfile ? '' : patient.emergencyContact?.name || '',
+      emergencyContactPhone: isInitialProfile ? '' : patient.emergencyContact?.phone || '',
+      emergencyContactRelationship: isInitialProfile ? '' : patient.emergencyContact?.relationship || '',
     });
+    setProfileEditing(!isProfileComplete({
+      ...emptyProfile,
+      registrationNumber: isInitialProfile ? '' : patient.registrationNumber || '',
+      firstname: patient.firstname || '',
+      lastname: patient.lastname || '',
+      phone: isInitialProfile ? '' : patient.phone || '',
+      gender: isInitialProfile ? '' : patient.gender || '',
+      birthdate: isInitialProfile ? '' : patient.birthdate ? toDateInputValue(new Date(patient.birthdate)) : '',
+    }));
   }, [patient]);
 
+  const profileComplete = isProfileComplete(profile);
+  const selectionReady = service?.requiresDoctor ? Boolean(doctor) : Boolean(resource);
+
+  const goToPreviousStep = () => {
+    if (step > 0) setStep(step - 1);
+    else navigate(-1);
+  };
+
+  const goToNextStep = () => {
+    if (step === 1 && service) {
+      setStep(2);
+      return;
+    }
+    if (step === 2 && selectionReady) {
+      setStep(3);
+      return;
+    }
+    if (step === 3 && time) {
+      setStep(4);
+    }
+  };
+
   const saveProfile = async () => {
-    setError('');
     try {
+      const registrationNumber = normalizeRegistrationNumber(profile.registrationNumber);
+      if (!registrationNumberPattern.test(registrationNumber)) {
+        toast('Регистрийн дугаар 2 кирилл үсэг + 8 цифртэй байна. Жишээ: УБ12345678', 'error');
+        return;
+      }
+
       await upsertProfile({
         variables: {
           input: {
-            registrationNumber: profile.registrationNumber,
+            registrationNumber,
             firstname: profile.firstname,
             lastname: profile.lastname,
             phone: profile.phone,
             email: profile.email || undefined,
             gender: profile.gender,
-            birthdate: new Date(profile.birthdate).toISOString(),
+            birthdate: toBookingDate(profile.birthdate),
             bloodType: profile.bloodType,
             allergies: splitList(profile.allergies),
             chronicConditions: splitList(profile.chronicConditions),
@@ -220,14 +297,14 @@ export default function AppointmentBookPage() {
         },
       });
       await refetchProfile();
+      setProfileEditing(false);
       setStep(1);
     } catch (err: any) {
-      setError(err.message || 'Мэдээлэл хадгалахад алдаа гарлаа');
+      toast(err.message || 'Мэдээлэл хадгалахад алдаа гарлаа', 'error');
     }
   };
 
   const submitAppointment = async () => {
-    setError('');
     try {
       await createAppointment({
         variables: {
@@ -236,7 +313,7 @@ export default function AppointmentBookPage() {
             serviceId: service?._id,
             doctorId: doctor?._id || undefined,
             resourceId: resource?._id || undefined,
-            scheduledDate: new Date(date).toISOString(),
+            scheduledDate: toBookingDate(date),
             scheduledTime: time,
             appointmentKind: service?.category,
             durationMinutes: resource?.defaultDurationMinutes || service?.defaultDurationMinutes || undefined,
@@ -247,7 +324,7 @@ export default function AppointmentBookPage() {
       });
       navigate('/appointments', { state: { success: true } });
     } catch (err: any) {
-      setError(err.message || 'Цаг захиалахад алдаа гарлаа');
+      toast(err.message || 'Цаг захиалахад алдаа гарлаа', 'error');
     }
   };
 
@@ -255,128 +332,247 @@ export default function AppointmentBookPage() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <button onClick={() => step > 0 ? setStep(step - 1) : navigate(-1)} className="btn-ghost mb-4 -ml-2">
+      <button onClick={goToPreviousStep} className="btn-ghost mb-4 -ml-2">
         <ArrowLeft size={16} /> Буцах
       </button>
       <h1 className="text-2xl font-display text-surface-900 mb-6">Цаг захиалах</h1>
 
-      <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-1">
-        {steps.map((s, i) => (
-          <div key={s} className="flex items-center gap-2 flex-shrink-0">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${i <= step ? 'bg-brand-500 text-white' : 'bg-surface-200 text-surface-500'}`}>
-              {i < step ? <Check size={14} /> : i + 1}
+      <div className="sticky top-16 z-30 -mx-4 mb-6 border-b border-surface-200 bg-surface-50 px-4 pb-4 pt-3 sm:top-16">
+        <div className="rounded-2xl border border-surface-200 bg-white p-4 shadow-sm shadow-surface-900/5 sm:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-brand-600">Алхам {step + 1}/{steps.length}</p>
+              <h2 className="mt-0.5 text-base font-display text-surface-900">{steps[step]}</h2>
             </div>
-            <span className={`text-xs font-medium ${i <= step ? 'text-brand-700' : 'text-surface-400'}`}>{s}</span>
-            {i < steps.length - 1 && <div className={`w-8 h-px ${i < step ? 'bg-brand-400' : 'bg-surface-200'}`} />}
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-sm font-medium text-brand-700">
+              {step + 1}
+            </div>
           </div>
-        ))}
-      </div>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-100">
+            <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
+          </div>
+        </div>
 
-      {error && <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>}
+        <div className="hidden rounded-2xl border border-surface-200 bg-white p-4 shadow-sm shadow-surface-900/5 sm:block">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-brand-600">Алхам {step + 1}/{steps.length}</p>
+              <h2 className="mt-0.5 text-base font-display text-surface-900">{steps[step]}</h2>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-sm font-medium text-brand-700">
+              {step + 1}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            {steps.map((s, i) => (
+              <div key={s} className="flex items-center gap-2 flex-shrink-0">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${i <= step ? 'bg-brand-500 text-white' : 'bg-surface-200 text-surface-500'}`}>
+                  {i < step ? <Check size={14} /> : i + 1}
+                </div>
+                <span className={`text-xs font-medium ${i <= step ? 'text-brand-700' : 'text-surface-400'}`}>{s}</span>
+                {i < steps.length - 1 && <div className={`w-8 h-px ${i < step ? 'bg-brand-400' : 'bg-surface-200'}`} />}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {step === 0 && (
         <div className="card space-y-4">
-          <h2 className="font-display text-surface-900">Миний мэдээлэл</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Регистрийн дугаар" required>
-              <input className="input-field" placeholder="УБ12345678" value={profile.registrationNumber} onChange={e => setProfile({ ...profile, registrationNumber: e.target.value })} />
-            </Field>
-            <Field label="Утас" required>
-              <input className="input-field" placeholder="99112233" value={profile.phone} onChange={e => setProfile({ ...profile, phone: e.target.value })} />
-            </Field>
-            <Field label="Овог" required>
-              <input className="input-field" placeholder="Овог" value={profile.lastname} onChange={e => setProfile({ ...profile, lastname: e.target.value })} />
-            </Field>
-            <Field label="Нэр" required>
-              <input className="input-field" placeholder="Нэр" value={profile.firstname} onChange={e => setProfile({ ...profile, firstname: e.target.value })} />
-            </Field>
-            <Field label="Хүйс" required>
-              <select className="input-field" value={profile.gender} onChange={e => setProfile({ ...profile, gender: e.target.value })}>
-                <option value="male">Эрэгтэй</option>
-                <option value="female">Эмэгтэй</option>
-                <option value="other">Бусад</option>
-              </select>
-            </Field>
-            <Field label="Төрсөн огноо" required>
-              <input type="date" className="input-field" value={profile.birthdate} onChange={e => setProfile({ ...profile, birthdate: e.target.value })} />
-            </Field>
-            <Field label="И-мэйл">
-              <input className="input-field" placeholder="name@example.com" value={profile.email} onChange={e => setProfile({ ...profile, email: e.target.value })} />
-            </Field>
-            <Field label="Цусны бүлэг">
-              <select className="input-field" value={profile.bloodType} onChange={e => setProfile({ ...profile, bloodType: e.target.value })}>
-                <option value="unknown">Тодорхойгүй</option>
-                <option value="A+">A+</option><option value="A-">A-</option>
-                <option value="B+">B+</option><option value="B-">B-</option>
-                <option value="AB+">AB+</option><option value="AB-">AB-</option>
-                <option value="O+">O+</option><option value="O-">O-</option>
-              </select>
-            </Field>
-            <div className="sm:col-span-2">
-              <Field label="Харшил">
-                <input className="input-field" placeholder="Пенициллин, тоос гэх мэт" value={profile.allergies} onChange={e => setProfile({ ...profile, allergies: e.target.value })} />
-              </Field>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-display text-surface-900">Миний мэдээлэл</h2>
+              <p className="mt-1 text-sm text-surface-500">Цаг захиалахад шаардлагатай үндсэн мэдээллээ баталгаажуулна.</p>
             </div>
-            <div className="sm:col-span-2">
-              <Field label="Архаг өвчин">
-                <input className="input-field" placeholder="Чихрийн шижин, даралт гэх мэт" value={profile.chronicConditions} onChange={e => setProfile({ ...profile, chronicConditions: e.target.value })} />
-              </Field>
-            </div>
-            <div className="sm:col-span-2">
-              <Field label="Тогтмол хэрэглэдэг эм">
-                <input className="input-field" placeholder="Эмийн нэрсийг таслалаар бичнэ" value={profile.regularMedications} onChange={e => setProfile({ ...profile, regularMedications: e.target.value })} />
-              </Field>
-            </div>
-            <div className="sm:col-span-2">
-              <Field label="Хаяг">
-                <input className="input-field" placeholder="Оршин суугаа хаяг" value={profile.address} onChange={e => setProfile({ ...profile, address: e.target.value })} />
-              </Field>
-            </div>
+            {profileComplete && !profileEditing && (
+              <button type="button" onClick={() => setProfileEditing(true)} className="btn-secondary px-3 py-2 text-xs">
+                Засах
+              </button>
+            )}
           </div>
-          <button onClick={saveProfile} disabled={savingProfile || !profile.registrationNumber || !profile.firstname || !profile.lastname || !profile.phone || !profile.birthdate} className="btn-primary w-full">
-            {savingProfile ? 'Хадгалж байна...' : 'Үргэлжлүүлэх'} <ArrowRight size={16} />
-          </button>
+
+          {profileComplete && !profileEditing ? (
+            <div className="grid gap-2 rounded-2xl bg-surface-50 p-4 text-sm sm:grid-cols-2">
+              <div><span className="text-surface-400">Нэр</span><p className="font-medium text-surface-800">{profile.lastname} {profile.firstname}</p></div>
+              <div><span className="text-surface-400">Утас</span><p className="font-medium text-surface-800">{profile.phone}</p></div>
+              <div><span className="text-surface-400">Регистр</span><p className="font-medium text-surface-800">{profile.registrationNumber}</p></div>
+              <div><span className="text-surface-400">Төрсөн огноо</span><p className="font-medium text-surface-800">{profile.birthdate}</p></div>
+              <div><span className="text-surface-400">Хүйс</span><p className="font-medium text-surface-800">{profile.gender === 'male' ? 'Эрэгтэй' : profile.gender === 'female' ? 'Эмэгтэй' : 'Бусад'}</p></div>
+              <div><span className="text-surface-400">Цусны бүлэг</span><p className="font-medium text-surface-800">{profile.bloodType === 'unknown' ? 'Тодорхойгүй' : profile.bloodType}</p></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Регистрийн дугаар" required>
+                <input
+                  className="input-field uppercase"
+                  placeholder="УБ12345678"
+                  value={profile.registrationNumber}
+                  onChange={e => setProfile({ ...profile, registrationNumber: normalizeRegistrationNumber(e.target.value) })}
+                  maxLength={10}
+                  pattern="[А-ЯЁӨҮа-яёөү]{2}[0-9]{8}"
+                  title="Эхний 2 тэмдэгт кирилл үсэг, дараагийн 8 тэмдэгт цифр байна"
+                />
+                {profile.registrationNumber && !registrationNumberPattern.test(profile.registrationNumber) && (
+                  <p className="mt-1 text-xs text-red-600">Жишээ: УБ12345678. Эхний 2 нь кирилл үсэг, үлдсэн 8 нь цифр байна.</p>
+                )}
+              </Field>
+              <Field label="Утас" required>
+                <input className="input-field" placeholder="99112233" value={profile.phone} onChange={e => setProfile({ ...profile, phone: e.target.value })} />
+              </Field>
+              <Field label="Овог" required>
+                <input className="input-field" placeholder="Овог" value={profile.lastname} onChange={e => setProfile({ ...profile, lastname: e.target.value })} />
+              </Field>
+              <Field label="Нэр" required>
+                <input className="input-field" placeholder="Нэр" value={profile.firstname} onChange={e => setProfile({ ...profile, firstname: e.target.value })} />
+              </Field>
+              <Field label="Хүйс" required>
+                <select className="input-field" value={profile.gender} onChange={e => setProfile({ ...profile, gender: e.target.value })}>
+                  <option value="" disabled>Сонгох</option>
+                  <option value="male">Эрэгтэй</option>
+                  <option value="female">Эмэгтэй</option>
+                  <option value="other">Бусад</option>
+                </select>
+              </Field>
+              <Field label="Төрсөн огноо" required>
+                <input type="date" className="input-field" value={profile.birthdate} onChange={e => setProfile({ ...profile, birthdate: e.target.value })} />
+              </Field>
+              <Field label="И-мэйл">
+                <input className="input-field" placeholder="name@example.com" value={profile.email} onChange={e => setProfile({ ...profile, email: e.target.value })} />
+              </Field>
+              <Field label="Цусны бүлэг">
+                <select className="input-field" value={profile.bloodType} onChange={e => setProfile({ ...profile, bloodType: e.target.value })}>
+                  <option value="unknown">Тодорхойгүй</option>
+                  <option value="A+">A+</option><option value="A-">A-</option>
+                  <option value="B+">B+</option><option value="B-">B-</option>
+                  <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                  <option value="O+">O+</option><option value="O-">O-</option>
+                </select>
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Харшил">
+                  <input className="input-field" placeholder="Пенициллин, тоос гэх мэт" value={profile.allergies} onChange={e => setProfile({ ...profile, allergies: e.target.value })} />
+                </Field>
+              </div>
+              <div className="sm:col-span-2">
+                <Field label="Архаг өвчин">
+                  <input className="input-field" placeholder="Чихрийн шижин, даралт гэх мэт" value={profile.chronicConditions} onChange={e => setProfile({ ...profile, chronicConditions: e.target.value })} />
+                </Field>
+              </div>
+              <div className="sm:col-span-2">
+                <Field label="Тогтмол хэрэглэдэг эм">
+                  <input className="input-field" placeholder="Эмийн нэрсийг таслалаар бичнэ" value={profile.regularMedications} onChange={e => setProfile({ ...profile, regularMedications: e.target.value })} />
+                </Field>
+              </div>
+              <div className="sm:col-span-2">
+                <Field label="Хаяг">
+                  <input className="input-field" placeholder="Оршин суугаа хаяг" value={profile.address} onChange={e => setProfile({ ...profile, address: e.target.value })} />
+                </Field>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <button onClick={profileEditing ? saveProfile : () => setStep(1)} disabled={savingProfile || !profileComplete} className="btn-primary w-full">
+              {savingProfile ? 'Хадгалж байна...' : 'Үргэлжлүүлэх'} <ArrowRight size={16} />
+            </button>
+          </div>
         </div>
       )}
 
       {step === 1 && (
-        <div className="space-y-3">
+        <div className="space-y-3 pb-24 sm:pb-0">
           {serviceLoading ? <LoadingSpinner /> : services.length === 0 ? (
-            <div className="text-center py-16 text-surface-400 text-sm">Үйлчилгээ тохируулаагүй байна. Админ seedDefaultScheduling ажиллуулна.</div>
-          ) : services.map((item: any) => (
-            <button key={item._id} onClick={() => { setService(item); setDoctor(null); setResource(null); setDate(''); setTime(''); setStep(2); }} className="card w-full text-left hover:border-brand-300 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center"><ClipboardList size={18} className="text-brand-600" /></div>
-              <div className="flex-1">
-                <span className="font-medium text-surface-800 text-sm">{item.name}</span>
-                <p className="text-xs text-surface-400">{item.defaultDurationMinutes} мин {item.defaultBufferMinutes ? `+ ${item.defaultBufferMinutes} мин амраах` : ''}</p>
+            <EmptyState icon={<ClipboardList size={40} />} title="Үйлчилгээ тохируулаагүй байна" description="Админ scheduling seed эсвэл үйлчилгээний тохиргоог шалгана." />
+          ) : (
+            <>
+              {services.map((item: any) => {
+                const selected = service?._id === item._id;
+                return (
+                  <button
+                    key={item._id}
+                    onClick={() => { setService(item); setDoctor(null); setResource(null); setDate(today); setTime(''); }}
+                    className={`card w-full text-left flex items-center gap-3 transition ${
+                      selected ? '!border-brand-500 bg-brand-50/60 ring-2 ring-brand-100' : 'hover:border-brand-300'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${selected ? 'bg-brand-500 text-white' : 'bg-brand-50 text-brand-600'}`}>
+                      <ClipboardList size={18} />
+                    </div>
+                    <div className="flex-1">
+                      <span className="font-medium text-surface-800 text-sm">{item.name}</span>
+                      <p className="text-xs text-surface-400">{item.defaultDurationMinutes} мин {item.defaultBufferMinutes ? `+ ${item.defaultBufferMinutes} мин амраах` : ''}</p>
+                    </div>
+                    {selected && <Check size={17} className="text-brand-600" />}
+                  </button>
+                );
+              })}
+              <div className="fixed inset-x-0 bottom-0 z-40 border-t border-surface-200 bg-white/95 p-4 shadow-[0_-8px_24px_rgba(25,40,52,0.10)] backdrop-blur sm:static sm:rounded-2xl sm:border-0 sm:bg-white sm:p-3 sm:shadow-none sm:ring-1 sm:ring-surface-200">
+                <button onClick={goToNextStep} disabled={!service} className="btn-primary w-full">
+                  Үргэлжлүүлэх <ArrowRight size={16} />
+                </button>
               </div>
-            </button>
-          ))}
+            </>
+          )}
         </div>
       )}
 
       {step === 2 && (
-        <div className="space-y-3">
+        <div className="space-y-3 pb-24 sm:pb-0">
           <p className="text-sm text-surface-500">{service?.name} хийх хүн/төхөөрөмж сонгоно уу</p>
           {service?.requiresDoctor ? (
-            doctorLoading ? <LoadingSpinner /> : doctors.map((doc: any) => (
-              <button key={doc._id} onClick={() => { setDoctor(doc); setStep(3); }} className="card w-full text-left hover:border-brand-300 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center"><UserCheck size={18} className="text-brand-700" /></div>
-                <div>
-                  <span className="font-medium text-surface-800 text-sm">{doc.userId?.lastname?.charAt(0)}.{doc.userId?.firstname}</span>
-                  <p className="text-xs text-surface-400">{doc.specialization || 'Эмч'}</p>
+            doctorLoading ? <LoadingSpinner /> : doctors.length === 0 ? (
+              <EmptyState icon={<UserCheck size={40} />} title="Сонгох эмч алга" description="Энэ үйлчилгээнд боломжтой эмч тохируулаагүй байна." />
+            ) : doctors.map((doc: any) => {
+              const selected = doctor?._id === doc._id;
+              return (
+                <button
+                  key={doc._id}
+                  onClick={() => { setDoctor(doc); setDate(today); setTime(''); }}
+                  className={`card w-full text-left flex items-center gap-3 transition ${
+                    selected ? '!border-brand-500 bg-brand-50/60 ring-2 ring-brand-100' : 'hover:border-brand-300'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${selected ? 'bg-brand-500 text-white' : 'bg-brand-100 text-brand-700'}`}>
+                    <UserCheck size={18} />
+                  </div>
+                  <div className="flex-1">
+                    <span className="font-medium text-surface-800 text-sm">{doc.userId?.lastname?.charAt(0)}.{doc.userId?.firstname}</span>
+                    <p className="text-xs text-surface-400">{doc.specialization || 'Эмч'}</p>
+                  </div>
+                  {selected && <Check size={17} className="text-brand-600" />}
+                </button>
+              );
+            })
+          ) : resourceLoading ? <LoadingSpinner /> : resources.length === 0 ? (
+            <EmptyState icon={<Activity size={40} />} title="Сонгох нөөц алга" description="Энэ үйлчилгээнд өрөө, төхөөрөмж эсвэл resource тохируулаагүй байна." />
+          ) : resources.map((item: any) => {
+            const selected = resource?._id === item._id;
+            return (
+              <button
+                key={item._id}
+                onClick={() => { setResource(item); setDate(today); setTime(''); }}
+                className={`card w-full text-left flex items-center gap-3 transition ${
+                  selected ? '!border-brand-500 bg-brand-50/60 ring-2 ring-brand-100' : 'hover:border-brand-300'
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${selected ? 'bg-brand-500 text-white' : 'bg-emerald-50 text-emerald-600'}`}>
+                  <Activity size={18} />
                 </div>
+                <div className="flex-1">
+                  <span className="font-medium text-surface-800 text-sm">{item.name}</span>
+                  <p className="text-xs text-surface-400">Багтаамж {item.capacity || 1} {item.defaultBufferMinutes ? `· амраах ${item.defaultBufferMinutes} мин` : ''}</p>
+                </div>
+                {selected && <Check size={17} className="text-brand-600" />}
               </button>
-            ))
-          ) : resourceLoading ? <LoadingSpinner /> : resources.map((item: any) => (
-            <button key={item._id} onClick={() => { setResource(item); setStep(3); }} className="card w-full text-left hover:border-brand-300 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center"><Activity size={18} className="text-emerald-600" /></div>
-              <div className="flex-1">
-                <span className="font-medium text-surface-800 text-sm">{item.name}</span>
-                <p className="text-xs text-surface-400">Багтаамж {item.capacity || 1} {item.defaultBufferMinutes ? `· амраах ${item.defaultBufferMinutes} мин` : ''}</p>
-              </div>
-            </button>
-          ))}
+            );
+          })}
+          {(service?.requiresDoctor ? doctors.length > 0 : resources.length > 0) && (
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-surface-200 bg-white/95 p-4 shadow-[0_-8px_24px_rgba(25,40,52,0.10)] backdrop-blur sm:static sm:rounded-2xl sm:border-0 sm:bg-white sm:p-3 sm:shadow-none sm:ring-1 sm:ring-surface-200">
+              <button onClick={goToNextStep} disabled={!selectionReady} className="btn-primary w-full">
+                Үргэлжлүүлэх <ArrowRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -431,7 +627,9 @@ export default function AppointmentBookPage() {
             </div>
           )}
           <textarea value={complaint} onChange={e => setComplaint(e.target.value)} placeholder="Шалтгаан / гомдол" rows={3} className="input-field resize-none" />
-          <button onClick={() => time && setStep(4)} disabled={!time} className="btn-primary w-full">Үргэлжлүүлэх <ArrowRight size={16} /></button>
+          <div className="sticky bottom-3 z-20 rounded-2xl bg-white/95 p-3 shadow-xl shadow-surface-900/10 ring-1 ring-surface-200 backdrop-blur">
+            <button onClick={goToNextStep} disabled={!time} className="btn-primary w-full">Үргэлжлүүлэх <ArrowRight size={16} /></button>
+          </div>
         </div>
       )}
 
@@ -439,14 +637,31 @@ export default function AppointmentBookPage() {
         <div className="space-y-5">
           <div className="card space-y-3 text-sm">
             <h3 className="font-display text-surface-900">Захиалгын мэдээлэл</h3>
-            <div className="flex justify-between"><span className="text-surface-500">Үйлчилгээ</span><span className="font-medium">{service?.name}</span></div>
-            <div className="flex justify-between"><span className="text-surface-500">Сонголт</span><span className="font-medium">{doctor ? `${doctor.userId?.lastname?.charAt(0)}.${doctor.userId?.firstname}` : resource?.name}</span></div>
-            <div className="flex justify-between"><span className="text-surface-500">Өдөр</span><span className="font-medium">{new Date(date).toLocaleDateString('mn-MN')}</span></div>
-            <div className="flex justify-between"><span className="text-surface-500">Цаг</span><span className="font-medium">{time}</span></div>
+            <div className="grid gap-3">
+              <div className="flex justify-between gap-4"><span className="text-surface-500">Үйлчилгээ</span><span className="text-right font-medium">{service?.name}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-surface-500">Сонголт</span><span className="text-right font-medium">{doctor ? `${doctor.userId?.lastname?.charAt(0)}.${doctor.userId?.firstname}` : resource?.name}</span></div>
+              {doctor?.specialization && (
+                <div className="flex justify-between gap-4"><span className="text-surface-500">Мэргэжил</span><span className="text-right font-medium">{doctor.specialization}</span></div>
+              )}
+              {resource?.room && (
+                <div className="flex justify-between gap-4"><span className="text-surface-500">Өрөө</span><span className="text-right font-medium">{resource.room}</span></div>
+              )}
+              <div className="flex justify-between gap-4"><span className="text-surface-500">Өдөр</span><span className="text-right font-medium">{formatDate(date)}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-surface-500">Цаг</span><span className="text-right font-medium">{time}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-surface-500">Үргэлжлэх хугацаа</span><span className="text-right font-medium">{resource?.defaultDurationMinutes || service?.defaultDurationMinutes || '-'} мин</span></div>
+              {complaint && (
+                <div className="rounded-xl bg-surface-50 p-3">
+                  <span className="text-surface-500">Шалтгаан / гомдол</span>
+                  <p className="mt-1 whitespace-pre-wrap font-medium text-surface-800">{complaint}</p>
+                </div>
+              )}
+            </div>
           </div>
-          <button onClick={submitAppointment} disabled={creating} className="btn-primary w-full">
-            {creating ? 'Баталгаажуулж байна...' : <><Check size={16} /> Баталгаажуулах</>}
-          </button>
+          <div className="sticky bottom-3 z-20 rounded-2xl bg-white/95 p-3 shadow-xl shadow-surface-900/10 ring-1 ring-surface-200 backdrop-blur">
+            <button onClick={submitAppointment} disabled={creating} className="btn-primary w-full">
+              {creating ? 'Баталгаажуулж байна...' : <><Check size={16} /> Баталгаажуулах</>}
+            </button>
+          </div>
         </div>
       )}
     </div>

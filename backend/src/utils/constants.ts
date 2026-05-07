@@ -72,6 +72,7 @@ export const ROLES = [
   "patient",
   "doctor",
   "nurse",
+  "receptionist",
   "superadmin",
 ] as const;
 export type Role = (typeof ROLES)[number];

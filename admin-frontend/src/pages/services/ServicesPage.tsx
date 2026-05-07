@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
-import { Boxes, Check, Pencil, Plus, RefreshCcw, Wrench, X } from 'lucide-react';
+import { Boxes, Building2, Pencil, Plus, RefreshCcw, Wrench, X } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import StatusBadge from '../../components/common/StatusBadge';
-import { LIST_SERVICES, LIST_STAFF } from '../../graphql/queries';
-import { CREATE_SERVICE, SEED_DEFAULT_SCHEDULING, UPDATE_SERVICE } from '../../graphql/mutations';
+import { useToast } from '../../components/common/ToastProvider';
+import { LIST_RESOURCES, LIST_SERVICES, LIST_STAFF } from '../../graphql/queries';
+import { CREATE_RESOURCE, CREATE_SERVICE, SEED_DEFAULT_SCHEDULING, UPDATE_SERVICE } from '../../graphql/mutations';
 
 const SERVICE_CATEGORIES = [
   { value: 'consultation', label: 'Үзлэг' },
@@ -22,6 +23,14 @@ const OWNER_OPTIONS = [
   { value: 'device', label: 'Төхөөрөмж', description: 'Төхөөрөмж/өрөөний нөөц дээр хамаарна' },
 ];
 
+const RESOURCE_TYPES = [
+  { value: 'room', label: 'Өрөө', description: 'Тарилга, ажилбар зэрэг нэг цагт нэг өвчтөн' },
+  { value: 'capacity_room', label: 'Олон суудалтай өрөө', description: 'Дуслын өрөө шиг зэрэг багтаамжтай' },
+  { value: 'device', label: 'Төхөөрөмж', description: 'Шарлага, массажны сандал зэрэг төхөөрөмж' },
+  { value: 'doctor', label: 'Эмчийн кабинет', description: 'Эмчтэй шууд холбоотой үзлэгийн нөөц' },
+  { value: 'nurse', label: 'Сувилагчийн нөөц', description: 'Сувилагчтай холбоотой үйлчилгээний нөөц' },
+];
+
 const defaultForm = {
   name: '',
   code: '',
@@ -32,6 +41,21 @@ const defaultForm = {
   defaultDurationMinutes: '20',
   defaultBufferMinutes: '0',
   isActive: true,
+};
+
+const defaultResourceForm = {
+  name: '',
+  type: 'device',
+  category: 'device',
+  serviceIds: [] as string[],
+  staffId: '',
+  room: '',
+  capacity: '1',
+  slotIntervalMinutes: '30',
+  defaultDurationMinutes: '30',
+  defaultBufferMinutes: '0',
+  isActive: true,
+  notes: '',
 };
 
 function getCategoryLabel(value: string) {
@@ -53,24 +77,35 @@ function getStaffLabel(staff: any) {
   return `${staff?.userId?.lastname?.charAt(0) || ''}.${staff?.userId?.firstname || ''}`;
 }
 
+function getResourceTypeLabel(value: string) {
+  return RESOURCE_TYPES.find(item => item.value === value)?.label || value || 'Тодорхойгүй';
+}
+
 export default function ServicesPage() {
+  const [activeTab, setActiveTab] = useState<'services' | 'resources'>('services');
   const [showCreate, setShowCreate] = useState(false);
+  const [showResourceCreate, setShowResourceCreate] = useState(false);
   const [editingService, setEditingService] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
   const [formData, setFormData] = useState(defaultForm);
+  const [resourceForm, setResourceForm] = useState(defaultResourceForm);
+  const { toast } = useToast();
 
   const { data, loading, refetch } = useQuery(LIST_SERVICES, {
     variables: { category: categoryFilter || undefined },
+  });
+  const { data: resourceData, loading: resourcesLoading, refetch: refetchResources } = useQuery(LIST_RESOURCES, {
+    variables: {},
   });
   const { data: staffData } = useQuery(LIST_STAFF, { variables: {} });
 
   const [createService, { loading: creating }] = useMutation(CREATE_SERVICE);
   const [updateService, { loading: updating }] = useMutation(UPDATE_SERVICE);
+  const [createResource, { loading: creatingResource }] = useMutation(CREATE_RESOURCE);
   const [seedDefaults, { loading: seeding }] = useMutation(SEED_DEFAULT_SCHEDULING);
 
   const services = useMemo(() => data?.listServices || [], [data]);
+  const resources = useMemo(() => resourceData?.listResources || [], [resourceData]);
   const staffList = useMemo(() => staffData?.listStaff || [], [staffData]);
   const eligibleStaff = useMemo(() => {
     if (formData.ownerType === 'doctor') return staffList.filter((item: any) => item.staffType === 'doctor');
@@ -82,6 +117,11 @@ export default function ServicesPage() {
     setFormData(defaultForm);
     setEditingService(null);
     setShowCreate(false);
+  };
+
+  const resetResourceForm = () => {
+    setResourceForm(defaultResourceForm);
+    setShowResourceCreate(false);
   };
 
   const openEdit = (service: any) => {
@@ -102,15 +142,12 @@ export default function ServicesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage('');
-    setError('');
-
     if (!formData.ownerType) {
-      setError('Үйлчилгээ хэнд хамаарахыг заавал сонгоно уу.');
+      toast('Үйлчилгээ хэнд хамаарахыг заавал сонгоно уу.', 'error');
       return;
     }
     if (!formData.assignedStaffIds.length) {
-      setError('Үйлчилгээнд дор хаяж нэг ажилтан онооно уу.');
+      toast('Үйлчилгээнд дор хаяж нэг ажилтан онооно уу.', 'error');
       return;
     }
 
@@ -136,7 +173,7 @@ export default function ServicesPage() {
             input,
           },
         });
-        setMessage(`${input.name} үйлчилгээ шинэчлэгдлээ.`);
+        toast(`${input.name} үйлчилгээ шинэчлэгдлээ.`, 'success');
       } else {
         await createService({
           variables: {
@@ -146,26 +183,62 @@ export default function ServicesPage() {
             },
           },
         });
-        setMessage(`${input.name} үйлчилгээ нэмэгдлээ.`);
+        toast(`${input.name} үйлчилгээ нэмэгдлээ.`, 'success');
       }
 
       resetForm();
       await refetch();
     } catch (err: any) {
-      setError(err.message || 'Үйлчилгээ хадгалах үед алдаа гарлаа.');
+      toast(err.message || 'Үйлчилгээ хадгалах үед алдаа гарлаа.', 'error');
     }
   };
 
   const handleSeedDefaults = async () => {
-    setMessage('');
-    setError('');
-
     try {
       await seedDefaults();
-      setMessage('Default scheduling үйлчилгээ, нөөцүүд амжилттай үүслээ.');
+      toast('Default scheduling үйлчилгээ, нөөцүүд амжилттай үүслээ.', 'success');
       await refetch();
+      await refetchResources();
     } catch (err: any) {
-      setError(err.message || 'Default үйлчилгээ үүсгэх үед алдаа гарлаа.');
+      toast(err.message || 'Default үйлчилгээ үүсгэх үед алдаа гарлаа.', 'error');
+    }
+  };
+
+  const handleResourceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resourceForm.serviceIds.length) {
+      toast('Өрөө/төхөөрөмжийг дор хаяж нэг үйлчилгээнд холбоно уу.', 'error');
+      return;
+    }
+    if (Number(resourceForm.capacity || 0) < 1) {
+      toast('Багтаамж 1-ээс бага байж болохгүй.', 'error');
+      return;
+    }
+
+    try {
+      await createResource({
+        variables: {
+          input: {
+            name: resourceForm.name.trim(),
+            type: resourceForm.type,
+            category: resourceForm.category || undefined,
+            serviceIds: resourceForm.serviceIds,
+            staffId: resourceForm.staffId || undefined,
+            room: resourceForm.room.trim() || undefined,
+            capacity: Number(resourceForm.capacity || 1),
+            slotIntervalMinutes: Number(resourceForm.slotIntervalMinutes || 30),
+            defaultDurationMinutes: Number(resourceForm.defaultDurationMinutes || 30),
+            defaultBufferMinutes: Number(resourceForm.defaultBufferMinutes || 0),
+            isActive: resourceForm.isActive,
+            notes: resourceForm.notes.trim() || undefined,
+          },
+        },
+      });
+      toast(`${resourceForm.name} нэмэгдлээ.`, 'success');
+      resetResourceForm();
+      await refetchResources();
+    } catch (err: any) {
+      toast(err.message || 'Өрөө/төхөөрөмж нэмэх үед алдаа гарлаа.', 'error');
     }
   };
 
@@ -176,36 +249,52 @@ export default function ServicesPage() {
           <h1 className="text-xl font-display text-surface-900 flex items-center gap-2">
             <Boxes size={20} /> Үйлчилгээ
           </h1>
-          <p className="text-sm text-surface-500 mt-1">Scheduling болон цаг захиалгад ашиглагдах үйлчилгээнүүдийг энд удирдана.</p>
+          <p className="text-sm text-surface-500 mt-1">Scheduling-д ашиглагдах үйлчилгээ, өрөө, төхөөрөмжийг энд удирдана.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={handleSeedDefaults} disabled={seeding} className="btn-secondary">
             <RefreshCcw size={14} /> {seeding ? 'Үүсгэж байна...' : 'Default үйлчилгээ оруулах'}
           </button>
-          <button type="button" onClick={() => {
-            setShowCreate(prev => !prev);
-            if (showCreate && !editingService) resetForm();
-          }} className={showCreate ? 'btn-secondary' : 'btn-primary'}>
-            {showCreate ? <><X size={14} /> Хаах</> : <><Plus size={14} /> Шинэ үйлчилгээ</>}
-          </button>
+          {activeTab === 'services' ? (
+            <button type="button" onClick={() => {
+              setShowCreate(prev => !prev);
+              if (showCreate && !editingService) resetForm();
+            }} className={showCreate ? 'btn-secondary' : 'btn-primary'}>
+              {showCreate ? <><X size={14} /> Хаах</> : <><Plus size={14} /> Шинэ үйлчилгээ</>}
+            </button>
+          ) : (
+            <button type="button" onClick={() => {
+              setShowResourceCreate(prev => !prev);
+              if (showResourceCreate) resetResourceForm();
+            }} className={showResourceCreate ? 'btn-secondary' : 'btn-primary'}>
+              {showResourceCreate ? <><X size={14} /> Хаах</> : <><Plus size={14} /> Өрөө/төхөөрөмж нэмэх</>}
+            </button>
+          )}
         </div>
       </div>
 
-      {message && (
-        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm flex items-center gap-2">
-          <Check size={14} /> {message}
-          <button onClick={() => setMessage('')} className="ml-auto"><X size={14} /></button>
-        </div>
-      )}
+      <div className="flex flex-wrap gap-2 rounded-xl border border-surface-200 bg-white p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('services')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors md:flex-none ${
+            activeTab === 'services' ? 'bg-brand-50 text-brand-700' : 'text-surface-500 hover:bg-surface-50'
+          }`}
+        >
+          <Boxes size={15} /> Үйлчилгээ
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('resources')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors md:flex-none ${
+            activeTab === 'resources' ? 'bg-brand-50 text-brand-700' : 'text-surface-500 hover:bg-surface-50'
+          }`}
+        >
+          <Building2 size={15} /> Өрөө & төхөөрөмж
+        </button>
+      </div>
 
-      {error && (
-        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
-          {error}
-          <button onClick={() => setError('')} className="ml-auto"><X size={14} /></button>
-        </div>
-      )}
-
-      {showCreate && (
+      {activeTab === 'services' && showCreate && (
         <form onSubmit={handleSubmit} className="card space-y-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-display text-surface-900">
@@ -383,6 +472,174 @@ export default function ServicesPage() {
         </form>
       )}
 
+      {activeTab === 'resources' && showResourceCreate && (
+        <form onSubmit={handleResourceSubmit} className="card space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-display text-surface-900">Өрөө/төхөөрөмж нэмэх</h2>
+              <p className="mt-1 text-xs text-surface-500">Patient цаг захиалах үед үйлчилгээ сонгосны дараа энэ нөөцүүдээс сонгоно.</p>
+            </div>
+            <button type="button" className="btn-ghost text-xs" onClick={resetResourceForm}>
+              <X size={14} /> Болих
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-surface-600 mb-1">Нэр *</label>
+              <input
+                value={resourceForm.name}
+                onChange={e => setResourceForm({ ...resourceForm, name: e.target.value })}
+                className="input-field"
+                placeholder="Шарлагын аппарат 2"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-surface-600 mb-1">Төрөл *</label>
+              <select
+                value={resourceForm.type}
+                onChange={e => setResourceForm({ ...resourceForm, type: e.target.value })}
+                className="input-field"
+              >
+                {RESOURCE_TYPES.map(type => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-surface-600 mb-1">Ангилал</label>
+              <select
+                value={resourceForm.category}
+                onChange={e => setResourceForm({ ...resourceForm, category: e.target.value })}
+                className="input-field"
+              >
+                {SERVICE_CATEGORIES.map(category => (
+                  <option key={category.value} value={category.value}>{category.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-surface-600 mb-1">Өрөөний дугаар</label>
+              <input
+                value={resourceForm.room}
+                onChange={e => setResourceForm({ ...resourceForm, room: e.target.value })}
+                className="input-field"
+                placeholder="303"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-surface-600 mb-1">Багтаамж *</label>
+              <input
+                type="number"
+                min="1"
+                value={resourceForm.capacity}
+                onChange={e => setResourceForm({ ...resourceForm, capacity: e.target.value })}
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-surface-600 mb-1">Slot interval (мин)</label>
+              <input
+                type="number"
+                min="1"
+                value={resourceForm.slotIntervalMinutes}
+                onChange={e => setResourceForm({ ...resourceForm, slotIntervalMinutes: e.target.value })}
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-surface-600 mb-1">Үргэлжлэх хугацаа</label>
+              <input
+                type="number"
+                min="0"
+                value={resourceForm.defaultDurationMinutes}
+                onChange={e => setResourceForm({ ...resourceForm, defaultDurationMinutes: e.target.value })}
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-surface-600 mb-1">Завсарлага</label>
+              <input
+                type="number"
+                min="0"
+                value={resourceForm.defaultBufferMinutes}
+                onChange={e => setResourceForm({ ...resourceForm, defaultBufferMinutes: e.target.value })}
+                className="input-field"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-surface-600 mb-2">Холбох үйлчилгээ *</label>
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-surface-200 bg-surface-50 p-2">
+                {services.map((service: any) => {
+                  const checked = resourceForm.serviceIds.includes(service._id);
+                  return (
+                    <label key={service._id} className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm ${
+                      checked ? 'bg-brand-50 text-brand-700' : 'bg-white text-surface-700'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          const next = e.target.checked
+                            ? [...resourceForm.serviceIds, service._id]
+                            : resourceForm.serviceIds.filter(id => id !== service._id);
+                          setResourceForm({ ...resourceForm, serviceIds: next });
+                        }}
+                      />
+                      <span className="font-medium">{service.name}</span>
+                    </label>
+                  );
+                })}
+                {services.length === 0 && (
+                  <p className="px-3 py-4 text-sm text-surface-400">Эхлээд үйлчилгээ нэмнэ үү.</p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-surface-600 mb-1">Хариуцах ажилтан</label>
+                <select
+                  value={resourceForm.staffId}
+                  onChange={e => setResourceForm({ ...resourceForm, staffId: e.target.value })}
+                  className="input-field"
+                >
+                  <option value="">Заавал биш</option>
+                  {staffList.map((staff: any) => (
+                    <option key={staff._id} value={staff._id}>{getStaffLabel(staff)} · {staff.specialization || staff.staffType}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-surface-600 mb-1">Тайлбар</label>
+                <textarea
+                  value={resourceForm.notes}
+                  onChange={e => setResourceForm({ ...resourceForm, notes: e.target.value })}
+                  className="input-field min-h-24 resize-none"
+                  placeholder="Жишээ: Аппарат ажиллуулсны дараа 10 минут хөргөх шаардлагатай"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-brand-100 bg-brand-50 px-4 py-3 text-xs text-brand-800">
+            Дуслын өрөө шиг олон хүн зэрэг авах бол <b>Олон суудалтай өрөө</b> сонгоод багтаамжийг 8 гэх мэтээр тохируулна. Төхөөрөмж дээр дараагийн цаг давхцахгүй байлгахын тулд завсарлага минут ашиглана.
+          </div>
+
+          <div className="flex gap-2">
+            <button type="submit" disabled={creatingResource} className="btn-primary">
+              <Building2 size={14} /> {creatingResource ? 'Нэмж байна...' : 'Өрөө/төхөөрөмж нэмэх'}
+            </button>
+            <button type="button" onClick={resetResourceForm} className="btn-ghost">Цэвэрлэх</button>
+          </div>
+        </form>
+      )}
+
+      {activeTab === 'services' && (
+      <>
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div className="flex gap-2">
           <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="input-field w-auto">
@@ -464,6 +721,60 @@ export default function ServicesPage() {
             </tbody>
           </table>
         </div>
+      )}
+      </>
+      )}
+
+      {activeTab === 'resources' && (
+        resourcesLoading ? (
+          <LoadingSpinner />
+        ) : (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {resources.map((resource: any) => (
+              <div key={resource._id} className="card !p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-surface-900">{resource.name}</p>
+                    <p className="mt-1 text-xs text-surface-500">
+                      {getResourceTypeLabel(resource.type)}
+                      {resource.room ? ` · Өрөө ${resource.room}` : ''}
+                    </p>
+                  </div>
+                  <StatusBadge status={resource.isActive === false ? 'draft' : 'active'} />
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <div className="rounded-lg bg-surface-50 px-3 py-2">
+                    <span className="text-surface-400">Багтаамж</span>
+                    <p className="font-medium text-surface-800">{resource.capacity || 1}</p>
+                  </div>
+                  <div className="rounded-lg bg-surface-50 px-3 py-2">
+                    <span className="text-surface-400">Хугацаа</span>
+                    <p className="font-medium text-surface-800">{resource.defaultDurationMinutes || 0} мин</p>
+                  </div>
+                  <div className="rounded-lg bg-surface-50 px-3 py-2">
+                    <span className="text-surface-400">Завсар</span>
+                    <p className="font-medium text-surface-800">{resource.defaultBufferMinutes || 0} мин</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {(resource.services || []).map((service: any) => (
+                    <span key={service._id} className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
+                      {service.name}
+                    </span>
+                  ))}
+                  {(resource.services || []).length === 0 && (
+                    <span className="text-xs text-surface-400">Үйлчилгээ холбоогүй</span>
+                  )}
+                </div>
+              </div>
+            ))}
+            {resources.length === 0 && (
+              <div className="lg:col-span-2 rounded-xl border border-dashed border-surface-300 bg-white px-4 py-12 text-center text-sm text-surface-400">
+                Өрөө/төхөөрөмж бүртгэгдээгүй байна.
+              </div>
+            )}
+          </div>
+        )
       )}
     </div>
   );

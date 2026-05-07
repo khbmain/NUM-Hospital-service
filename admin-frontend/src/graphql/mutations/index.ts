@@ -2,13 +2,13 @@ import { gql } from '@apollo/client';
 
 export const LOGIN_MUTATION = gql`
   mutation LoginUser($phone: String!, $password: String!) {
-    loginUser(phone: $phone, password: $password) { token user { _id firstname lastname role phone } }
+    loginUser(phone: $phone, password: $password) { token user { _id firstname lastname role phone email } }
   }
 `;
 
 export const CREATE_PATIENT = gql`
   mutation CreatePatient($input: CreatePatientInput!) {
-    createPatient(input: $input) { _id registrationNumber firstname lastname phone category }
+    createPatient(input: $input) { _id registrationNumber firstname lastname phone email category }
   }
 `;
 
@@ -157,6 +157,25 @@ export const UPDATE_SERVICE = gql`
       requiresDevice
       assignedStaffs { _id staffType userId { _id firstname lastname } }
       isActive
+    }
+  }
+`;
+
+export const CREATE_RESOURCE = gql`
+  mutation CreateResource($input: CreateResourceInput!) {
+    createResource(input: $input) {
+      _id
+      name
+      type
+      category
+      room
+      capacity
+      slotIntervalMinutes
+      defaultDurationMinutes
+      defaultBufferMinutes
+      isActive
+      services { _id name }
+      staff { _id userId { firstname lastname } specialization }
     }
   }
 `;

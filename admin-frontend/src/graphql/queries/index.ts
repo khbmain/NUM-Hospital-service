@@ -66,10 +66,15 @@ export const GET_VISIT = gql`
 export const VISITS_BY_PATIENT = gql`
   query VisitsByPatient($patientId: ID!, $page: Int, $limit: Int) {
     listVisitsByPatient(patientId: $patientId, page: $page, limit: $limit) {
-      _id visitDate status chiefComplaint assessment
+      _id visitDate status chiefComplaint historyOfPresentIllness physicalExamination assessment plan notes completedAt
       doctor { userId { firstname lastname } specialization }
-      diagnoses { _id name type }
-      completedAt
+      vitalSigns {
+        temperature bloodPressureSystolic bloodPressureDiastolic heartRate respiratoryRate oxygenSaturation weight height
+      }
+      diagnoses { _id name icdCode icdTitle type severity notes createdAt }
+      prescriptions {
+        _id prescriptionNumber items { medicationName dosage frequency duration quantity unit instructions } notes status createdAt
+      }
     }
   }
 `;
@@ -184,6 +189,14 @@ export const MONTHLY_REPORT = gql`
       month
       completedAppointments
       completedVisits
+      ageGroups
+      ageGenderRows {
+        label
+        cells { ageGroup female male }
+        totalFemale
+        totalMale
+        total
+      }
       byAgeGroup { label count }
       byGender { label count }
       byService { label count }
@@ -226,6 +239,10 @@ export const LIST_RESOURCES = gql`
       category
       room
       capacity
+      slotIntervalMinutes
+      defaultDurationMinutes
+      defaultBufferMinutes
+      isActive
       services { _id name }
       staff { _id userId { firstname lastname } specialization }
     }

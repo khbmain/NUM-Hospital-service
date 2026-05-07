@@ -114,9 +114,23 @@ function validateServiceOwner(input: any) {
   }
 }
 
-function validateAssignedStaff(input: any) {
+async function validateAssignedStaff(input: any) {
   if (!Array.isArray(input?.assignedStaffIds) || input.assignedStaffIds.length === 0) {
     throw new UserInputError("Үйлчилгээнд дор хаяж нэг ажилтан заавал онооно.");
+  }
+
+  const staff = await Staff.find({ _id: { $in: input.assignedStaffIds } }).select("_id staffType");
+  if (staff.length !== input.assignedStaffIds.length) {
+    throw new UserInputError("Оноосон ажилтны мэдээлэл олдсонгүй.");
+  }
+
+  const requiredStaffType = input.requiresDoctor ? "doctor" : input.requiresNurse ? "nurse" : null;
+  if (requiredStaffType && staff.some((item) => item.staffType !== requiredStaffType)) {
+    throw new UserInputError(
+      requiredStaffType === "doctor"
+        ? "Эмчийн үйлчилгээнд зөвхөн эмч онооно."
+        : "Сувилагчийн үйлчилгээнд зөвхөн сувилагч онооно."
+    );
   }
 }
 
@@ -142,8 +156,17 @@ export async function listResources(
 export async function createService(_: any, { input }: { input: any }, ctx: ContextType) {
   requireRole("superadmin")(ctx);
   validateServiceOwner(input);
-  validateAssignedStaff(input);
-  const service = await new Service(input).save();
+  await validateAssignedStaff(input);
+
+  const normalizedInput = {
+    ...input,
+    code: String(input.code || "").trim().toUpperCase(),
+    name: String(input.name || "").trim(),
+  };
+  const existing = await Service.findOne({ code: normalizedInput.code });
+  if (existing) throw new UserInputError("Ийм code-той үйлчилгээ аль хэдийн бүртгэгдсэн байна.");
+
+  const service = await new Service(normalizedInput).save();
   await logAudit({
     userId: ctx._id,
     action: "create",
@@ -163,8 +186,11 @@ export async function updateService(_: any, { _id, input }: { _id: string; input
     requiresNurse: input?.requiresNurse ?? existing.requiresNurse,
     requiresDevice: input?.requiresDevice ?? existing.requiresDevice,
   });
-  validateAssignedStaff({
+  await validateAssignedStaff({
     assignedStaffIds: input?.assignedStaffIds ?? existing.assignedStaffIds,
+    requiresDoctor: input?.requiresDoctor ?? existing.requiresDoctor,
+    requiresNurse: input?.requiresNurse ?? existing.requiresNurse,
+    requiresDevice: input?.requiresDevice ?? existing.requiresDevice,
   });
   const service = await Service.findByIdAndUpdate(_id, input, { new: true });
   if (!service) throw new UserInputError("Үйлчилгээ олдсонгүй");
@@ -211,7 +237,10 @@ export async function listUnavailableBlocks(
   }
   query.status = { $ne: "cancelled" };
   return UnavailableBlock.find(query)
-    .populate("serviceId resourceId staffId createdBy cancelledAppointmentIds")
+    .populate([
+      "serviceId", "resourceId", "staffId", "createdBy",
+      { path: "cancelledAppointmentIds", populate: { path: "patientId" } },
+    ])
     .sort({ startAt: -1 });
 }
 
@@ -233,19 +262,22 @@ export async function createUnavailableBlock(_: any, { input }: { input: any }, 
   if (!(startAt < endAt)) throw new UserInputError("Дуусах цаг эхлэх цагаас хойш байх ёстой");
   if (!blockInput.resourceId && !blockInput.staffId) throw new UserInputError("Нөөц эсвэл ажилтан сонгоно уу");
 
-  const appointmentQuery: any = {
-    status: { $in: ["scheduled", "checked_in"] },
-    scheduledStart: { $lt: endAt },
-    blockedUntil: { $gt: startAt },
-  };
-  if (blockInput.resourceId) appointmentQuery.resourceId = blockInput.resourceId;
+  const andConditions: any[] = [
+    { scheduledStart: { $lt: endAt } },
+    { $or: [{ blockedUntil: { $gt: startAt } }, { blockedUntil: null }] },
+  ];
   if (blockInput.staffId) {
-    appointmentQuery.$or = [
+    andConditions.push({ $or: [
       { doctorId: blockInput.staffId },
       { nurseId: blockInput.staffId },
       { assignedStaffId: blockInput.staffId },
-    ];
+    ]});
   }
+  const appointmentQuery: any = {
+    status: { $in: ["scheduled", "checked_in"] },
+    $and: andConditions,
+  };
+  if (blockInput.resourceId) appointmentQuery.resourceId = blockInput.resourceId;
 
   const affectedAppointments: any[] = await Appointment.find(appointmentQuery)
     .populate("patientId serviceId resourceId doctorId assignedStaffId");
@@ -305,7 +337,10 @@ export async function createUnavailableBlock(_: any, { input }: { input: any }, 
     ctx,
   });
 
-  return block.populate("serviceId resourceId staffId createdBy cancelledAppointmentIds");
+  return block.populate([
+    "serviceId", "resourceId", "staffId", "createdBy",
+    { path: "cancelledAppointmentIds", populate: { path: "patientId" } },
+  ]);
 }
 
 export async function updateUnavailableBlock(_: any, { _id, input }: { _id: string; input: any }, ctx: ContextType) {
@@ -451,9 +486,12 @@ export async function getAvailableSlots(
   const { dayStart, dayEnd } = getDayBounds(new Date(date));
 
   const existing: any[] = await Appointment.find({
-    resourceId: resource._id,
     scheduledDate: { $gte: dayStart, $lte: dayEnd },
     status: ACTIVE_APPOINTMENT_STATUSES,
+    $or: [
+      { resourceId: resource._id },
+      ...(resource.staffId ? [{ doctorId: resource.staffId, resourceId: null }] : []),
+    ],
   });
   const blocks: any[] = await UnavailableBlock.find({
     $or: [

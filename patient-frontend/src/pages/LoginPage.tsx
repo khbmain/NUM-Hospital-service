@@ -1,39 +1,43 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../components/common/ToastProvider';
 import { Mail, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [info, setInfo] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { requestEmailOtp, loginWithEmailOtp } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setInfo('');
     setLoading(true);
 
     try {
       if (!otpSent) {
         const message = await requestEmailOtp(email);
         setOtpSent(true);
-        setInfo(message);
+        toast(message, 'success');
         return;
       }
 
       await loginWithEmailOtp(email, otp);
+      toast('Амжилттай нэвтэрлээ.', 'success');
       navigate('/');
     } catch (err: any) {
-      setError(err.message || 'Нэвтрэхэд алдаа гарлаа');
+      toast(err.message || 'Нэвтрэхэд алдаа гарлаа', 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleChangeEmail = () => {
+    setOtpSent(false);
+    setOtp('');
   };
 
   return (
@@ -70,19 +74,7 @@ export default function LoginPage() {
           </div>
 
           <h2 className="text-2xl font-display text-surface-900 mb-1">Нэвтрэх</h2>
-          <p className="text-surface-500 mb-8">Зөвхөн `@num.edu.mn` эсвэл `@stud.num.edu.mn` МУИС-ийн мэйлээр OTP авч нэвтэрнэ.</p>
-
-          {error && (
-            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-
-          {info && (
-            <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
-              {info}
-            </div>
-          )}
+          <p className="text-surface-500 mb-6">МУИС-ийн имэйл хаягаараа OTP код авч нэвтэрнэ.</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -95,7 +87,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@num.edu.mn эсвэл name@stud.num.edu.mn"
+                  placeholder="***@num.edu.mn, ***@stud.num.edu.mn"
                   className="input-field pl-10"
                   required
                   disabled={otpSent}
@@ -120,19 +112,24 @@ export default function LoginPage() {
                     required
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOtpSent(false);
-                    setOtp('');
-                    setInfo('');
-                    setError('');
-                  }}
-                  className="mt-2 text-sm text-brand-600 hover:text-brand-700"
-                >
-                  Имэйлээ солих
-                </button>
               </div>
+            )}
+
+            <div className="rounded-xl border border-brand-100 bg-brand-50 px-3 py-2 text-xs leading-5 text-brand-800">
+              {otpSent
+                ? 'OTP ирэхгүй бол имэйл хаягаа зөв эсэхийг шалгаад солих эсвэл дахин илгээнэ үү. Алдаатай/байхгүй хаягт код хүрэхгүй.'
+                : 'OTP нь зөвхөн `@num.edu.mn` эсвэл `@stud.num.edu.mn` имэйлд илгээгдэнэ.'}
+            </div>
+
+            {otpSent && (
+              <button
+                type="button"
+                onClick={handleChangeEmail}
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-surface-200 bg-white px-4 py-3 text-sm font-medium text-surface-700 transition-colors hover:bg-surface-50 disabled:opacity-60"
+              >
+                Имэйлээ солих
+              </button>
             )}
 
             <button
@@ -152,7 +149,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-8 text-center text-xs text-surface-400">
-            Бүртгэлгүй бол бүртгэлийн ажилтантай холбогдоно уу
+            МУИС-ийн имэйлтэй бол бүртгэл автоматаар үүснэ. Имэйлгүй бол бүртгэлийн ажилтантай холбогдоно уу.
           </p>
         </div>
       </div>

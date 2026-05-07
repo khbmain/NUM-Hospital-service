@@ -44,6 +44,7 @@ export default gql`
   }
 
   input CreatePatientInput {
+    registrationNumber: String
     firstname: String!
     lastname: String!
     phone: String

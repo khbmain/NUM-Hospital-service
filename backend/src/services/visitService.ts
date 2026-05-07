@@ -31,6 +31,65 @@ const POPULATE_FIELDS = [
   { path: "createdBy" },
 ];
 
+function getDayBounds(date: Date) {
+  const dayStart = new Date(date);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(date);
+  dayEnd.setHours(23, 59, 59, 999);
+  return { dayStart, dayEnd };
+}
+
+function formatTime(date: Date) {
+  return `${date.getHours().toString().padStart(2, "0")}:${date
+    .getMinutes()
+    .toString()
+    .padStart(2, "0")}`;
+}
+
+async function createWalkInAppointment(input: any, doctorId: any, ctx: ContextType) {
+  const now = new Date();
+  const scheduledEnd = new Date(now.getTime() + 30 * 60 * 1000);
+  const { dayStart, dayEnd } = getDayBounds(now);
+  const todayCount = await Appointment.countDocuments({
+    doctorId,
+    scheduledDate: { $gte: dayStart, $lte: dayEnd },
+    status: { $nin: ["cancelled", "no_show"] },
+  });
+
+  const appointment = new Appointment({
+    patientId: input.patientId,
+    doctorId,
+    scheduledDate: now,
+    scheduledTime: formatTime(now),
+    scheduledStart: now,
+    scheduledEnd,
+    blockedUntil: scheduledEnd,
+    duration: 30,
+    durationMinutes: 30,
+    bufferMinutes: 0,
+    appointmentKind: input.appointmentKind || "consultation",
+    type: "walk_in",
+    status: "in_progress",
+    queueNumber: todayCount + 1,
+    chiefComplaint: input.chiefComplaint,
+    createdBy: ctx._id,
+    checkedInAt: now,
+    checkedInBy: ctx._id,
+  });
+  await appointment.save();
+
+  await logAudit({
+    userId: ctx._id,
+    action: "create",
+    resource: "appointment",
+    resourceId: appointment._id!.toString(),
+    details: { type: "walk_in" },
+    ctx,
+  });
+
+  return appointment;
+}
+
 // ─── Queries ───
 
 export async function getVisit(
@@ -130,13 +189,16 @@ export async function createVisit(
     }
   }
 
+  const doctorId = doctorStaff?._id || input.doctorId;
+  const walkInAppointment = input.appointmentId ? null : await createWalkInAppointment(input, doctorId, ctx);
+
   const visit = new Visit({
-    appointmentId: input.appointmentId || undefined,
+    appointmentId: input.appointmentId || walkInAppointment?._id || undefined,
     patientId: input.patientId,
-    doctorId: doctorStaff?._id || input.doctorId,
+    doctorId,
     visitDate: new Date(),
     status: "active",
-    visitType: input.visitType || (input.appointmentId ? "scheduled" : "doctor_created"),
+    visitType: input.visitType || (input.appointmentId ? "scheduled" : "walk_in"),
     chiefComplaint: input.chiefComplaint,
     createdBy: ctx._id,
   });

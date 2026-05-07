@@ -51,7 +51,7 @@ export async function listAppointments(
   { filter }: { filter: any },
   ctx: ContextType
 ) {
-  requireRole("doctor", "superadmin")(ctx);
+  requireRole("doctor", "nurse", "receptionist", "superadmin")(ctx);
 
   const query: any = {};
   if (filter.doctorId) query.doctorId = filter.doctorId;
@@ -123,7 +123,7 @@ export async function getDoctorQueue(
   return Appointment.find({
     doctorId,
     scheduledDate: { $gte: dayStart, $lte: dayEnd },
-    status: { $in: ["scheduled", "checked_in", "in_progress"] },
+    status: { $in: ["scheduled", "checked_in", "in_progress", "completed", "no_show"] },
   })
     .populate(APPOINTMENT_POPULATE)
     .sort({ queueNumber: 1, scheduledTime: 1 });
@@ -240,7 +240,7 @@ export async function checkInAppointment(
   { _id }: { _id: string },
   ctx: ContextType
 ) {
-  requireRole("superadmin")(ctx);
+  requireRole("receptionist", "superadmin")(ctx);
 
   const appointment = await Appointment.findById(_id);
   if (!appointment) throw new UserInputError("Цаг захиалга олдсонгүй");

@@ -63,6 +63,7 @@ import {
 import {
   getMyNotifications, readNotifications,
 } from "../../services/notificationService";
+import { Staff } from "../../models/staffModel";
 
 const DateScalar = new GraphQLScalarType({
   ...GraphQLDateTimeISO.toConfig(),
@@ -240,7 +241,14 @@ export const resolvers = {
   },
 
   Service: {
-    assignedStaffs: (parent: any) => parent.assignedStaffIds,
+    assignedStaffs: async (parent: any) => {
+      const assignedStaffs = parent.assignedStaffIds || [];
+      if (!assignedStaffs.length) return [];
+
+      if (assignedStaffs[0]?.staffType) return assignedStaffs;
+
+      return Staff.find({ _id: { $in: assignedStaffs } }).populate("userId departmentId");
+    },
   },
 
   UnavailableBlock: {
