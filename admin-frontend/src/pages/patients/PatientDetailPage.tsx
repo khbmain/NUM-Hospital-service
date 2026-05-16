@@ -7,6 +7,7 @@ import { UPDATE_PATIENT } from '../../graphql/mutations';
 import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { useToast } from '../../components/common/ToastProvider';
+import EmailDomainInput from '../../components/common/EmailDomainInput';
 
 type PatientForm = {
   firstname: string;
@@ -58,6 +59,10 @@ function getAge(birthdate?: string) {
     (now.getMonth() === born.getMonth() && now.getDate() >= born.getDate());
   if (!hasBirthdayPassed) age -= 1;
   return age;
+}
+
+function toApiDate(value: string) {
+  return value ? `${value}T12:00:00.000Z` : undefined;
 }
 
 export default function PatientDetailPage() {
@@ -116,10 +121,10 @@ export default function PatientDetailPage() {
             firstname: form.firstname,
             lastname: form.lastname,
             phone: form.phone || undefined,
-            email: form.email || undefined,
+            email: form.email.trim() || undefined,
             category: form.category || undefined,
             gender: form.gender || undefined,
-            birthdate: form.birthdate || undefined,
+            birthdate: toApiDate(form.birthdate),
             bloodType: form.bloodType || undefined,
             address: form.address || undefined,
             notes: form.notes || undefined,
@@ -182,10 +187,11 @@ export default function PatientDetailPage() {
               <label className="mb-1 block text-xs font-medium text-surface-600">Утас</label>
               <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input-field" />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-surface-600">Имэйл</label>
-              <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input-field" />
-            </div>
+            <EmailDomainInput
+              label="Имэйл"
+              value={form.email}
+              onChange={(email) => setForm({ ...form, email })}
+            />
             <div>
               <label className="mb-1 block text-xs font-medium text-surface-600">Хүйс</label>
               <select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} className="input-field">
@@ -320,6 +326,7 @@ export default function PatientDetailPage() {
                       {rx.items.map((item: any, index: number) => (
                         <p key={index} className="text-sm text-surface-700">
                           {item.medicationName} · {item.dosage} · {item.frequency}
+                          {item.unit && ` · ${item.unit}`}
                         </p>
                       ))}
                     </div>

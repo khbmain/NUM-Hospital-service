@@ -72,10 +72,30 @@ const emptyRxItem = {
   dosage: '',
   frequency: '',
   duration: '',
-  quantity: '',
   unit: '',
   instructions: '',
 };
+
+const prescriptionUnitOptions = [
+  'Шахмал',
+  'Таблетка',
+  'Капсул',
+  'Сироп',
+  'Дусал',
+  'Ампул',
+  'Флакон',
+  'Тюбик',
+  'Саше',
+  'Уут',
+  'Лаа',
+  'Спрей',
+  'Тос',
+  'Гель',
+  'Нунтаг',
+  'Уусмал',
+  'мл',
+  'мг',
+];
 
 function toOptionalFloat(value: string) {
   const trimmed = value.trim().replace(',', '.');
@@ -128,6 +148,7 @@ export default function ExaminePage() {
   const [createPrescription] = useMutation(CREATE_PRESCRIPTION);
 
   const visit = data?.getVisit;
+  const isCompleted = visit?.status === 'completed';
   const patient = visit?.patient;
   const age = useMemo(() => getAge(patient?.birthdate), [patient?.birthdate]);
   const { data: historyData, loading: historyLoading } = useQuery(VISITS_BY_PATIENT, {
@@ -183,6 +204,10 @@ export default function ExaminePage() {
   };
 
   const handleSaveVitals = async () => {
+    if (isCompleted) {
+      toast('Дууссан үзлэгийг зөвхөн харах боломжтой.', 'error');
+      return;
+    }
     setSavingSection('vitals');
     try {
       const input: Record<string, number> = {};
@@ -212,6 +237,10 @@ export default function ExaminePage() {
   };
 
   const handleSaveExam = async () => {
+    if (isCompleted) {
+      toast('Дууссан үзлэгийг зөвхөн харах боломжтой.', 'error');
+      return;
+    }
     setSavingSection('exam');
     try {
       await updateVisit({ variables: { id: visitId, input: exam } });
@@ -226,6 +255,10 @@ export default function ExaminePage() {
 
   const handleAddDiagnosis = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCompleted) {
+      toast('Дууссан үзлэг дээр онош нэмэх боломжгүй.', 'error');
+      return;
+    }
     setSavingSection('diagnosis');
     try {
       await createDiagnosis({ variables: { input: { visitId, ...diag } } });
@@ -241,6 +274,10 @@ export default function ExaminePage() {
 
   const handleAddPrescription = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCompleted) {
+      toast('Дууссан үзлэг дээр жор нэмэх боломжгүй.', 'error');
+      return;
+    }
     const items = rxItems
       .filter((item) => item.medicationName.trim())
       .map((item) => ({
@@ -248,7 +285,6 @@ export default function ExaminePage() {
         dosage: item.dosage.trim(),
         frequency: item.frequency.trim(),
         duration: item.duration.trim() || undefined,
-        quantity: toOptionalInt(item.quantity),
         unit: item.unit.trim() || undefined,
         instructions: item.instructions.trim() || undefined,
       }));
@@ -345,6 +381,12 @@ export default function ExaminePage() {
         </div>
       )}
 
+      {isCompleted && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+          Энэ үзлэг дууссан тул харах горимоор нээгдсэн байна.
+        </div>
+      )}
+
       <div className="grid gap-4 xl:grid-cols-2">
         <div className="card space-y-3">
           <div className="flex items-center gap-2">
@@ -417,6 +459,7 @@ export default function ExaminePage() {
                     {rx.items?.slice(0, 3).map((item: any, index: number) => (
                       <p key={index} className="text-sm text-surface-600">
                         {item.medicationName} · {item.dosage} · {item.frequency}
+                        {item.unit && ` · ${item.unit}`}
                       </p>
                     ))}
                   </div>
@@ -461,14 +504,17 @@ export default function ExaminePage() {
                   placeholder={field.placeholder}
                   value={vitals[field.key]}
                   onChange={(e) => setVitals({ ...vitals, [field.key]: e.target.value })}
+                  disabled={isCompleted}
                   className="input-field"
                 />
               </div>
             ))}
           </div>
-          <button type="button" onClick={handleSaveVitals} disabled={savingSection === 'vitals'} className="btn-primary text-sm">
-            <Save size={14} /> {savingSection === 'vitals' ? 'Хадгалж байна...' : 'Амин үзүүлэлт хадгалах'}
-          </button>
+          {!isCompleted && (
+            <button type="button" onClick={handleSaveVitals} disabled={savingSection === 'vitals'} className="btn-primary text-sm">
+              <Save size={14} /> {savingSection === 'vitals' ? 'Хадгалж байна...' : 'Амин үзүүлэлт хадгалах'}
+            </button>
+          )}
         </div>
       )}
 
@@ -481,13 +527,16 @@ export default function ExaminePage() {
                 rows={field.rows}
                 value={exam[field.key]}
                 onChange={(e) => setExam({ ...exam, [field.key]: e.target.value })}
+                disabled={isCompleted}
                 className="input-field resize-none"
               />
             </div>
           ))}
-          <button type="button" onClick={handleSaveExam} disabled={savingSection === 'exam'} className="btn-primary text-sm">
-            <Save size={14} /> {savingSection === 'exam' ? 'Хадгалж байна...' : 'Тэмдэглэл хадгалах'}
-          </button>
+          {!isCompleted && (
+            <button type="button" onClick={handleSaveExam} disabled={savingSection === 'exam'} className="btn-primary text-sm">
+              <Save size={14} /> {savingSection === 'exam' ? 'Хадгалж байна...' : 'Тэмдэглэл хадгалах'}
+            </button>
+          )}
         </div>
       )}
 
@@ -509,53 +558,61 @@ export default function ExaminePage() {
             </div>
           )}
 
-          <form onSubmit={handleAddDiagnosis} className="card space-y-3">
-            <h3 className="text-xs font-medium text-surface-500 uppercase tracking-wider">Шинэ онош нэмэх</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-surface-600 mb-1">Оношийн нэр *</label>
-                <input value={diag.name} onChange={(e) => setDiag({ ...diag, name: e.target.value })} className="input-field" required />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-surface-600 mb-1">ICD-11 код</label>
-                <input value={diag.icdCode} onChange={(e) => setDiag({ ...diag, icdCode: e.target.value })} className="input-field" placeholder="01" />
-              </div>
-              <div className="md:col-span-2">
-                <Icd11Picker
-                  selectedCode={diag.icdCode}
-                  onSelect={(entity, parent) => setDiag({
-                    ...diag,
-                    name: entity.title,
-                    icdTitle: entity.title,
-                    icdCode: entity.code || '',
-                    icdLinearizationUri: entity.uri,
-                    icdFoundationUri: entity.foundationUri || '',
-                    icdParentUri: parent?.uri || '',
-                  })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-surface-600 mb-1">Төрөл</label>
-                <select value={diag.type} onChange={(e) => setDiag({ ...diag, type: e.target.value })} className="input-field">
-                  <option value="primary">Үндсэн</option>
-                  <option value="secondary">Хавсарсан</option>
-                  <option value="differential">Ялгах</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-surface-600 mb-1">Хүндийн зэрэг</label>
-                <select value={diag.severity} onChange={(e) => setDiag({ ...diag, severity: e.target.value })} className="input-field">
-                  <option value="mild">Хөнгөн</option>
-                  <option value="moderate">Дунд</option>
-                  <option value="severe">Хүнд</option>
-                  <option value="critical">Маш хүнд</option>
-                </select>
-              </div>
+          {isCompleted && !visit.diagnoses?.length && (
+            <div className="rounded-lg bg-surface-50 px-4 py-6 text-center text-sm text-surface-400">
+              Онош бүртгээгүй.
             </div>
-            <button type="submit" disabled={savingSection === 'diagnosis'} className="btn-primary text-sm">
-              <Plus size={14} /> {savingSection === 'diagnosis' ? 'Нэмж байна...' : 'Онош нэмэх'}
-            </button>
-          </form>
+          )}
+
+          {!isCompleted && (
+            <form onSubmit={handleAddDiagnosis} className="card space-y-3">
+              <h3 className="text-xs font-medium text-surface-500 uppercase tracking-wider">Шинэ онош нэмэх</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-surface-600 mb-1">Оношийн нэр *</label>
+                  <input value={diag.name} onChange={(e) => setDiag({ ...diag, name: e.target.value })} className="input-field" required />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-surface-600 mb-1">ICD-11 код</label>
+                  <input value={diag.icdCode} onChange={(e) => setDiag({ ...diag, icdCode: e.target.value })} className="input-field" placeholder="01" />
+                </div>
+                <div className="md:col-span-2">
+                  <Icd11Picker
+                    selectedCode={diag.icdCode}
+                    onSelect={(entity, parent) => setDiag({
+                      ...diag,
+                      name: entity.title,
+                      icdTitle: entity.title,
+                      icdCode: entity.code || '',
+                      icdLinearizationUri: entity.uri,
+                      icdFoundationUri: entity.foundationUri || '',
+                      icdParentUri: parent?.uri || '',
+                    })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-surface-600 mb-1">Төрөл</label>
+                  <select value={diag.type} onChange={(e) => setDiag({ ...diag, type: e.target.value })} className="input-field">
+                    <option value="primary">Үндсэн</option>
+                    <option value="secondary">Хавсарсан</option>
+                    <option value="differential">Ялгах</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-surface-600 mb-1">Хүндийн зэрэг</label>
+                  <select value={diag.severity} onChange={(e) => setDiag({ ...diag, severity: e.target.value })} className="input-field">
+                    <option value="mild">Хөнгөн</option>
+                    <option value="moderate">Дунд</option>
+                    <option value="severe">Хүнд</option>
+                    <option value="critical">Маш хүнд</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" disabled={savingSection === 'diagnosis'} className="btn-primary text-sm">
+                <Plus size={14} /> {savingSection === 'diagnosis' ? 'Нэмж байна...' : 'Онош нэмэх'}
+              </button>
+            </form>
+          )}
         </div>
       )}
 
@@ -570,7 +627,8 @@ export default function ExaminePage() {
                   <div className="mt-1 space-y-1">
                     {rx.items.map((item: any, index: number) => (
                       <p key={index} className="text-sm text-surface-700">
-                        {item.medicationName} - {item.dosage} · {item.frequency}
+                        {item.medicationName} - {item.dosage}
+                        {item.unit && ` · ${item.unit}`} · {item.frequency}
                       </p>
                     ))}
                   </div>
@@ -579,127 +637,125 @@ export default function ExaminePage() {
             </div>
           )}
 
-          <form onSubmit={handleAddPrescription} className="card space-y-4">
-            <h3 className="text-xs font-medium text-surface-500 uppercase tracking-wider">Шинэ жор бичих</h3>
-            {rxItems.map((item, index) => (
-              <div key={index} className="grid grid-cols-2 md:grid-cols-6 gap-2 p-3 bg-surface-50 rounded-lg relative">
-                {index > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setRxItems(rxItems.filter((_, itemIndex) => itemIndex !== index))}
-                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-100 text-red-600 rounded-full flex items-center justify-center"
-                    aria-label="Эм хасах"
-                  >
-                    <X size={10} />
-                  </button>
-                )}
-                <div className="col-span-2">
-                  <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Эмийн нэр *</label>
-                  <input
-                    value={item.medicationName}
-                    onChange={(e) => {
-                      const next = [...rxItems];
-                      next[index] = { ...next[index], medicationName: e.target.value };
-                      setRxItems(next);
-                    }}
-                    className="input-field text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Тун *</label>
-                  <input
-                    value={item.dosage}
-                    onChange={(e) => {
-                      const next = [...rxItems];
-                      next[index] = { ...next[index], dosage: e.target.value };
-                      setRxItems(next);
-                    }}
-                    className="input-field text-sm"
-                    placeholder="500mg"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Давтамж *</label>
-                  <input
-                    value={item.frequency}
-                    onChange={(e) => {
-                      const next = [...rxItems];
-                      next[index] = { ...next[index], frequency: e.target.value };
-                      setRxItems(next);
-                    }}
-                    className="input-field text-sm"
-                    placeholder="3 удаа/өдөр"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Хугацаа</label>
-                  <input
-                    value={item.duration}
-                    onChange={(e) => {
-                      const next = [...rxItems];
-                      next[index] = { ...next[index], duration: e.target.value };
-                      setRxItems(next);
-                    }}
-                    className="input-field text-sm"
-                    placeholder="5 хоног"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Тоо</label>
-                  <input
-                    type="number"
-                    value={item.quantity}
-                    onChange={(e) => {
-                      const next = [...rxItems];
-                      next[index] = { ...next[index], quantity: e.target.value };
-                      setRxItems(next);
-                    }}
-                    className="input-field text-sm"
-                    placeholder="15"
-                  />
-                </div>
-                <div className="col-span-2 md:col-span-3">
-                  <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Заавар</label>
-                  <input
-                    value={item.instructions}
-                    onChange={(e) => {
-                      const next = [...rxItems];
-                      next[index] = { ...next[index], instructions: e.target.value };
-                      setRxItems(next);
-                    }}
-                    className="input-field text-sm"
-                    placeholder="Хоолны дараа ууна"
-                  />
-                </div>
-                <div className="col-span-2 md:col-span-3">
-                  <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Нэгж</label>
-                  <input
-                    value={item.unit}
-                    onChange={(e) => {
-                      const next = [...rxItems];
-                      next[index] = { ...next[index], unit: e.target.value };
-                      setRxItems(next);
-                    }}
-                    className="input-field text-sm"
-                    placeholder="шахмал"
-                  />
-                </div>
-              </div>
-            ))}
-            <button type="button" onClick={() => setRxItems([...rxItems, { ...emptyRxItem }])} className="btn-ghost text-xs">
-              <Plus size={12} /> Эм нэмэх
-            </button>
-            <div>
-              <label className="block text-xs font-medium text-surface-600 mb-1">Жорын тэмдэглэл</label>
-              <textarea value={rxNotes} onChange={(e) => setRxNotes(e.target.value)} rows={2} className="input-field resize-none" />
+          {isCompleted && !visit.prescriptions?.length && (
+            <div className="rounded-lg bg-surface-50 px-4 py-6 text-center text-sm text-surface-400">
+              Жор бүртгээгүй.
             </div>
-            <button type="submit" disabled={savingSection === 'prescription'} className="btn-primary text-sm">
-              <Pill size={14} /> {savingSection === 'prescription' ? 'Бичиж байна...' : 'Жор бичих'}
-            </button>
-          </form>
+          )}
+
+          {!isCompleted && (
+            <form onSubmit={handleAddPrescription} className="card space-y-4">
+              <h3 className="text-xs font-medium text-surface-500 uppercase tracking-wider">Шинэ жор бичих</h3>
+              {rxItems.map((item, index) => (
+                <div key={index} className="grid grid-cols-2 md:grid-cols-6 gap-2 p-3 bg-surface-50 rounded-lg relative">
+                  {index > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setRxItems(rxItems.filter((_, itemIndex) => itemIndex !== index))}
+                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-100 text-red-600 rounded-full flex items-center justify-center"
+                      aria-label="Эм хасах"
+                    >
+                      <X size={10} />
+                    </button>
+                  )}
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Эмийн нэр *</label>
+                    <input
+                      value={item.medicationName}
+                      onChange={(e) => {
+                        const next = [...rxItems];
+                        next[index] = { ...next[index], medicationName: e.target.value };
+                        setRxItems(next);
+                      }}
+                      className="input-field text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Тун *</label>
+                    <input
+                      value={item.dosage}
+                      onChange={(e) => {
+                        const next = [...rxItems];
+                        next[index] = { ...next[index], dosage: e.target.value };
+                        setRxItems(next);
+                      }}
+                      className="input-field text-sm"
+                      placeholder="500mg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Давтамж *</label>
+                    <input
+                      value={item.frequency}
+                      onChange={(e) => {
+                        const next = [...rxItems];
+                        next[index] = { ...next[index], frequency: e.target.value };
+                        setRxItems(next);
+                      }}
+                      className="input-field text-sm"
+                      placeholder="3 удаа/өдөр"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Хугацаа</label>
+                    <input
+                      value={item.duration}
+                      onChange={(e) => {
+                        const next = [...rxItems];
+                        next[index] = { ...next[index], duration: e.target.value };
+                        setRxItems(next);
+                      }}
+                      className="input-field text-sm"
+                      placeholder="5 хоног"
+                    />
+                  </div>
+                  <div className="col-span-2 md:col-span-3">
+                    <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Заавар</label>
+                    <input
+                      value={item.instructions}
+                      onChange={(e) => {
+                        const next = [...rxItems];
+                        next[index] = { ...next[index], instructions: e.target.value };
+                        setRxItems(next);
+                      }}
+                      className="input-field text-sm"
+                      placeholder="Хоолны дараа ууна"
+                    />
+                  </div>
+                  <div className="col-span-2 md:col-span-3">
+                    <label className="block text-[10px] font-medium text-surface-500 mb-0.5">Нэгж</label>
+                    <select
+                      value={item.unit}
+                      onChange={(e) => {
+                        const next = [...rxItems];
+                        next[index] = { ...next[index], unit: e.target.value };
+                        setRxItems(next);
+                      }}
+                      className="input-field text-sm"
+                    >
+                      <option value="">Сонгох</option>
+                      {prescriptionUnitOptions.map((unit) => (
+                        <option key={unit} value={unit}>{unit}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ))}
+              <button type="button" onClick={() => setRxItems([...rxItems, { ...emptyRxItem }])} className="btn-ghost text-xs">
+                <Plus size={12} /> Эм нэмэх
+              </button>
+              <div>
+                <label className="block text-xs font-medium text-surface-600 mb-1">Жорын тэмдэглэл</label>
+                <textarea value={rxNotes} onChange={(e) => setRxNotes(e.target.value)} rows={2} className="input-field resize-none" />
+              </div>
+              <button type="submit" disabled={savingSection === 'prescription'} className="btn-primary text-sm">
+                <Pill size={14} /> {savingSection === 'prescription' ? 'Бичиж байна...' : 'Жор бичих'}
+              </button>
+            </form>
+          )}
         </div>
       )}
 
@@ -802,6 +858,7 @@ export default function ExaminePage() {
                         {rx.items?.map((item: any, index: number) => (
                           <p key={index} className="text-xs text-surface-700">
                             {item.medicationName} · {item.dosage} · {item.frequency}
+                            {item.unit && ` · ${item.unit}`}
                             {item.duration && ` · ${item.duration}`}
                             {item.instructions && ` · ${item.instructions}`}
                           </p>

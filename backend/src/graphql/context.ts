@@ -1,6 +1,6 @@
 import { ContextFunction } from "@apollo/server";
 import { ExpressContextFunctionArgument } from "@apollo/server/express4";
-import { DecodedToken, decodeToken } from "../utils/auth";
+import { DecodedToken, decodeToken, getAuthTokenFromRequest } from "../utils/auth";
 import { PubSub } from "graphql-subscriptions";
 import { pubsub } from "./index";
 
@@ -16,9 +16,9 @@ export const context: ContextFunction<
   ContextType
 > = async ({ req, res }) => {
   try {
-    const token = req.headers.authorization || "";
+    const token = getAuthTokenFromRequest(req);
     if (token) {
-      const decoded = decodeToken(token.replace("Bearer ", ""));
+      const decoded = decodeToken(token);
       return {
         ...decoded,
         authenticated: true,

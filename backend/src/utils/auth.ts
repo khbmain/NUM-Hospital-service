@@ -1,5 +1,6 @@
 import jwt, { type SignOptions } from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import type { Request, Response } from "express";
 import { GraphQLError } from "graphql";
 import { ContextType } from "../graphql/context";
 import { JWT_SECRET, JWT_EXPIRATION, Role } from "./constants";
@@ -31,6 +32,43 @@ export const generateToken = (user: {
 export const decodeToken = (token: string) => {
   return jwt.verify(token, JWT_SECRET) as DecodedToken;
 };
+
+export const AUTH_COOKIE_NAME = "num_hospital_token";
+
+const AUTH_COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+const authCookieOptions = {
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: process.env.COOKIE_SECURE === "true",
+  path: "/",
+};
+
+export function setAuthCookie(res: Response, token: string) {
+  res.cookie(AUTH_COOKIE_NAME, token, {
+    ...authCookieOptions,
+    maxAge: AUTH_COOKIE_MAX_AGE_MS,
+  });
+}
+
+export function clearAuthCookie(res: Response) {
+  res.clearCookie(AUTH_COOKIE_NAME, authCookieOptions);
+}
+
+export function getAuthTokenFromRequest(req: Request) {
+  const authorizationToken = req.headers.authorization?.replace("Bearer ", "");
+  if (authorizationToken) return authorizationToken;
+
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) return "";
+
+  const cookies = cookieHeader.split(";").map((cookie) => cookie.trim());
+  const authCookie = cookies.find((cookie) =>
+    cookie.startsWith(`${AUTH_COOKIE_NAME}=`)
+  );
+
+  return authCookie ? decodeURIComponent(authCookie.split("=")[1] || "") : "";
+}
 
 // ─── Access Guards ───────────────────────────────────────────
 

@@ -18,6 +18,9 @@ import StaffListPage from './pages/staff/StaffListPage';
 import ServicesPage from './pages/services/ServicesPage';
 import MonthlyReportPage from './pages/reports/MonthlyReportPage';
 import UnavailableBlocksPage from './pages/schedule/UnavailableBlocksPage';
+import AuditLogPage from './pages/AuditLogPage';
+import SettingsPage from './pages/SettingsPage';
+import SurveySettingsPage from './pages/SurveySettingsPage';
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { isAuthenticated, loading, hasRole } = useAuth();
@@ -58,24 +61,13 @@ function AppRoutes() {
       <Route path="/staff" element={<ProtectedRoute roles={['superadmin']}><StaffListPage /></ProtectedRoute>} />
       <Route path="/services" element={<ProtectedRoute roles={['superadmin']}><ServicesPage /></ProtectedRoute>} />
 
-      {/* Placeholder pages - to be built */}
-      <Route path="/nurse/queue" element={<ProtectedRoute roles={['nurse']}><Placeholder title="Сувилагчийн дараалал" /></ProtectedRoute>} />
-      <Route path="/inventory" element={<ProtectedRoute roles={['nurse','superadmin']}><Placeholder title="Эм, материал" /></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute roles={['doctor','superadmin']}><MonthlyReportPage /></ProtectedRoute>} />
-      <Route path="/audit" element={<ProtectedRoute roles={['superadmin']}><Placeholder title="Аудит лог" /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute roles={['superadmin']}><Placeholder title="Тохиргоо" /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute roles={['receptionist','doctor','nurse','superadmin']}><MonthlyReportPage /></ProtectedRoute>} />
+      <Route path="/survey-settings" element={<ProtectedRoute roles={['superadmin']}><SurveySettingsPage /></ProtectedRoute>} />
+      <Route path="/audit" element={<ProtectedRoute roles={['superadmin']}><AuditLogPage /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute roles={['receptionist','doctor','nurse','superadmin']}><SettingsPage /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-  );
-}
-
-function Placeholder({ title }: { title: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-20">
-      <h1 className="text-xl font-display text-surface-900 mb-2">{title}</h1>
-      <p className="text-sm text-surface-500">Phase 2 хөгжүүлэлтэд бүтээгдэнэ</p>
-    </div>
   );
 }
 

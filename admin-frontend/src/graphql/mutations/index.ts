@@ -2,7 +2,71 @@ import { gql } from '@apollo/client';
 
 export const LOGIN_MUTATION = gql`
   mutation LoginUser($phone: String!, $password: String!) {
-    loginUser(phone: $phone, password: $password) { token user { _id firstname lastname role phone email } }
+    loginUser(phone: $phone, password: $password) { user { _id firstname lastname role phone email } }
+  }
+`;
+
+export const UPDATE_PROFILE = gql`
+  mutation UpdateMe($input: UpdateProfileInput!) {
+    updateMe(input: $input) {
+      _id
+      firstname
+      lastname
+      email
+      phone
+      gender
+      role
+      status
+    }
+  }
+`;
+
+export const CHANGE_PASSWORD = gql`
+  mutation ChangePassword($password: String!, $newPassword: String!) {
+    changePassword(password: $password, newPassword: $newPassword)
+  }
+`;
+
+export const UPDATE_SATISFACTION_SURVEY_TEMPLATE = gql`
+  mutation UpdateSatisfactionSurveyTemplate($input: UpdateSatisfactionSurveyTemplateInput!) {
+    updateSatisfactionSurveyTemplate(input: $input) {
+      _id
+      title
+      description
+      currentVersion
+      questions {
+        key
+        label
+        category
+        order
+        active
+      }
+      versions {
+        version
+        title
+        validFrom
+        validTo
+        questions { key active }
+      }
+      updatedAt
+    }
+  }
+`;
+
+export const REMOVE_SATISFACTION_SURVEY_TEMPLATE = gql`
+  mutation RemoveSatisfactionSurveyTemplate {
+    removeSatisfactionSurveyTemplate {
+      action
+      deleted
+      archived
+      responseCount
+      template {
+        _id
+        title
+        active
+        archivedAt
+      }
+    }
   }
 `;
 

@@ -57,6 +57,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "ts-node src/seed.ts",
-    "seed:demo": "ts-node src/seedDemo.ts"
+    "seed:demo": "ts-node src/seedDemo.ts",
+    "seed:bulk-test": "ts-node src/seedBulkTestData.ts",
+    "backup:mongodb": "bash ./scripts/backup-mongodb-s3.sh",
+    "restore:mongodb": "bash ./scripts/restore-mongodb-s3.sh"
   }
 }

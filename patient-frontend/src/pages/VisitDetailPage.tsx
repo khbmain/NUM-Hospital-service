@@ -40,7 +40,7 @@ export default function VisitDetailPage() {
       {/* Chief Complaint */}
       {visit.chiefComplaint && (
         <div className="card">
-          <h3 className="text-xs font-medium text-surface-400 uppercase tracking-wider mb-2">Гомдол</h3>
+          <h3 className="text-xs font-medium text-surface-400 uppercase tracking-wider mb-2">Гол зовиур</h3>
           <p className="text-sm text-surface-800">{visit.chiefComplaint}</p>
         </div>
       )}
@@ -169,6 +169,7 @@ export default function VisitDetailPage() {
                     <span className="text-sm font-medium text-surface-800">{item.medicationName}</span>
                     <p className="text-xs text-surface-500 mt-0.5">
                       {item.dosage} · {item.frequency}
+                      {item.unit && ` · ${item.unit}`}
                       {item.duration && ` · ${item.duration}`}
                     </p>
                     {item.instructions && (

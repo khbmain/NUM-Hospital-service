@@ -1,0 +1,107 @@
+[
+  {
+    "file": "01-patient-login.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/01-patient-login.png",
+    "caption": "Өвчтөний порталын нэвтрэх дэлгэц"
+  },
+  {
+    "file": "02-patient-dashboard.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/02-patient-dashboard.png",
+    "caption": "Өвчтөний нүүр хуудас: цаг, үзлэг, жорын товчлолууд"
+  },
+  {
+    "file": "03-patient-profile.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/03-patient-profile.png",
+    "caption": "Өвчтөний профайл болон үндсэн мэдээлэл"
+  },
+  {
+    "file": "04-booking-service.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/04-booking-service.png",
+    "caption": "Цаг захиалах алхам: үйлчилгээ сонгох"
+  },
+  {
+    "file": "05-booking-resource.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/05-booking-resource.png",
+    "caption": "Цаг захиалах алхам: өрөө, төхөөрөмж эсвэл нөөц сонгох"
+  },
+  {
+    "file": "06-booking-slots.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/06-booking-slots.png",
+    "caption": "Цаг захиалах алхам: өдөр ба боломжтой цаг сонгох"
+  },
+  {
+    "file": "07-patient-appointments.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/07-patient-appointments.png",
+    "caption": "Өвчтөний миний цагуудын жагсаалт"
+  },
+  {
+    "file": "08-patient-visits.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/08-patient-visits.png",
+    "caption": "Өвчтөний үзлэгийн түүх"
+  },
+  {
+    "file": "09-patient-prescriptions.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/09-patient-prescriptions.png",
+    "caption": "Өвчтөний жорын жагсаалт"
+  },
+  {
+    "file": "10-patient-survey.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/10-patient-survey.png",
+    "caption": "Сэтгэл ханамжийн судалгааны хуудас"
+  },
+  {
+    "file": "11-admin-login.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/11-admin-login.png",
+    "caption": "Удирдлагын системийн нэвтрэх дэлгэц"
+  },
+  {
+    "file": "12-admin-dashboard.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/12-admin-dashboard.png",
+    "caption": "Удирдлагын системийн хяналтын самбар"
+  },
+  {
+    "file": "13-admin-patients.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/13-admin-patients.png",
+    "caption": "Өвчтөн хайх, жагсаалт харах хуудас"
+  },
+  {
+    "file": "14-admin-appointments.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/14-admin-appointments.png",
+    "caption": "Цаг захиалгын жагсаалт, огноо болон төлөвийн шүүлтүүр"
+  },
+  {
+    "file": "15-admin-services.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/15-admin-services.png",
+    "caption": "Үйлчилгээ, өрөө, төхөөрөмжийн тохиргоо"
+  },
+  {
+    "file": "16-admin-reports.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/16-admin-reports.png",
+    "caption": "Сарын тайлан, нас хүйсийн нэгтгэл"
+  },
+  {
+    "file": "17-admin-survey-settings.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/17-admin-survey-settings.png",
+    "caption": "Сэтгэл ханамжийн судалгааны тохиргоо"
+  },
+  {
+    "file": "18-doctor-queue.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/18-doctor-queue.png",
+    "caption": "Эмчийн дараалал болон шуурхай үзлэг эхлүүлэх хэсэг"
+  },
+  {
+    "file": "19-doctor-examine-vitals.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/19-doctor-examine-vitals.png",
+    "caption": "Эмчийн үзлэгийн дэлгэц: амин үзүүлэлт, өмнөх түүх"
+  },
+  {
+    "file": "20-doctor-examine-diagnosis.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/20-doctor-examine-diagnosis.png",
+    "caption": "Эмчийн үзлэгийн дэлгэц: онош, ICD-11 сонголт"
+  },
+  {
+    "file": "21-doctor-examine-prescription.png",
+    "path": "/var/www/dev/NUM-Hospital-service/docs/user-manual-assets/21-doctor-examine-prescription.png",
+    "caption": "Эмчийн үзлэгийн дэлгэц: жор бичих"
+  }
+]

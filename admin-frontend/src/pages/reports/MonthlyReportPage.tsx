@@ -2,11 +2,100 @@ import { Fragment, useMemo, useState } from 'react';
 import { useQuery } from '@apollo/client';
 import { MONTHLY_REPORT } from '../../graphql/queries';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { BarChart3, CalendarDays } from 'lucide-react';
+import { BarChart3, CalendarDays, Download } from 'lucide-react';
 
 function currentMonth() {
   const now = new Date();
   return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+}
+
+function currentMonthRange() {
+  const month = currentMonth();
+  const [year, monthNumber] = month.split('-').map(Number);
+  const lastDay = new Date(year, monthNumber, 0).getDate();
+  return {
+    dateFrom: `${month}-01`,
+    dateTo: `${month}-${lastDay.toString().padStart(2, '0')}`,
+  };
+}
+
+function toGraphQLDateTime(date: string) {
+  return date ? `${date}T00:00:00.000Z` : undefined;
+}
+
+function escapeCell(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function downloadAgeGenderExcel(report: any) {
+  const rows = report.ageGenderRows || [];
+  const ageGroups = report.ageGroups || [];
+  const totals = ageGroups.map((group: string) => {
+    const total = rows.reduce(
+      (sum: { female: number; male: number }, row: any) => {
+        const cell = row.cells.find((item: any) => item.ageGroup === group);
+        return {
+          female: sum.female + (cell?.female || 0),
+          male: sum.male + (cell?.male || 0),
+        };
+      },
+      { female: 0, male: 0 },
+    );
+    return { ageGroup: group, ...total };
+  });
+  const totalFemale = rows.reduce((sum: number, row: any) => sum + row.totalFemale, 0);
+  const totalMale = rows.reduce((sum: number, row: any) => sum + row.totalMale, 0);
+
+  const headerGroups = ageGroups.map((group: string) => `<th colspan="2">${escapeCell(group)}</th>`).join('');
+  const headerGender = ageGroups.map(() => '<th>эм</th><th>эр</th>').join('');
+  const bodyRows = rows.map((row: any) => {
+    const cells = ageGroups.map((group: string) => {
+      const cell = row.cells.find((item: any) => item.ageGroup === group) || { female: 0, male: 0 };
+      return `<td>${cell.female || ''}</td><td>${cell.male || ''}</td>`;
+    }).join('');
+    return `<tr><th>${escapeCell(row.label)}</th>${cells}<td>${row.totalFemale || ''}</td><td>${row.totalMale || ''}</td><td>${row.total || ''}</td></tr>`;
+  }).join('');
+  const totalCells = totals.map((cell: any) => `<td>${cell.female || ''}</td><td>${cell.male || ''}</td>`).join('');
+  const totalRow = rows.length > 0
+    ? `<tr><th>Нийт</th>${totalCells}<td>${totalFemale || ''}</td><td>${totalMale || ''}</td><td>${totalFemale + totalMale || ''}</td></tr>`
+    : '';
+
+  const workbook = `<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #999; padding: 6px; text-align: center; }
+    th:first-child, td:first-child { text-align: left; }
+  </style>
+</head>
+<body>
+  <h2>Нас, хүйсээр нэгтгэсэн тайлан</h2>
+  <p>${escapeCell(report.month)}</p>
+  <table>
+    <thead>
+      <tr><th rowspan="2">Үзүүлэлт</th>${headerGroups}<th colspan="3">Нийт</th></tr>
+      <tr>${headerGender}<th>эм</th><th>эр</th><th>бүгд</th></tr>
+    </thead>
+    <tbody>${bodyRows || `<tr><td colspan="${ageGroups.length * 2 + 4}">Мэдээлэл байхгүй</td></tr>`}${totalRow}</tbody>
+  </table>
+</body>
+</html>`;
+
+  const blob = new Blob([workbook], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `nas-huis-tailan-${String(report.month || '').replace(/\s+/g, '')}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function ReportTable({ title, rows }: { title: string; rows: { label: string; count: number }[] }) {
@@ -55,7 +144,12 @@ function AgeGenderMatrix({ report }: { report: any }) {
           <h2 className="text-sm font-display text-surface-900">Нас, хүйсээр нэгтгэсэн тайлан</h2>
           <p className="mt-1 text-xs text-surface-500">Загварын дагуу насны бүлэг бүрийг эм/эр баганаар харуулна.</p>
         </div>
-        <p className="text-xs font-medium text-surface-500">{report.month}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-medium text-surface-500">{report.month}</p>
+          <button type="button" onClick={() => downloadAgeGenderExcel(report)} className="btn-secondary text-xs">
+            <Download size={14} /> Excel
+          </button>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-[1180px] border-collapse text-xs">
@@ -137,8 +231,18 @@ function AgeGenderMatrix({ report }: { report: any }) {
 }
 
 export default function MonthlyReportPage() {
-  const [month, setMonth] = useState(currentMonth());
-  const { data, loading, error } = useQuery(MONTHLY_REPORT, { variables: { month } });
+  const initialRange = currentMonthRange();
+  const [dateFrom, setDateFrom] = useState(initialRange.dateFrom);
+  const [dateTo, setDateTo] = useState(initialRange.dateTo);
+  const hasInvalidRange = Boolean(dateFrom && dateTo && dateFrom > dateTo);
+  const reportVariables = useMemo(() => ({
+    dateFrom: toGraphQLDateTime(dateFrom),
+    dateTo: toGraphQLDateTime(dateTo),
+  }), [dateFrom, dateTo]);
+  const { data, loading, error } = useQuery(MONTHLY_REPORT, {
+    variables: reportVariables,
+    skip: !dateFrom || !dateTo || hasInvalidRange,
+  });
   const report = data?.monthlyReport;
   const total = useMemo(() => (report?.completedAppointments || 0) + (report?.completedVisits || 0), [report]);
 
@@ -151,12 +255,17 @@ export default function MonthlyReportPage() {
           </h1>
           <p className="text-sm text-surface-500 mt-1">Дууссан үзлэг, үйлчилгээний нас/хүйс/нөөцийн нэгтгэл</p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-surface-600">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-surface-600">
           <CalendarDays size={16} />
-          <input type="month" value={month} onChange={e => setMonth(e.target.value)} className="input-field w-auto" />
-        </label>
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input-field w-auto" />
+          <span className="text-surface-400">-</span>
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input-field w-auto" />
+        </div>
       </div>
 
+      {hasInvalidRange && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">Эхлэх огноо дуусах огнооноос өмнө байх ёстой.</div>
+      )}
       {error && <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">{error.message}</div>}
       {loading ? <LoadingSpinner /> : report && (
         <>

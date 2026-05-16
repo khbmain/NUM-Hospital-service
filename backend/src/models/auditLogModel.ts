@@ -6,7 +6,7 @@ const AuditLogSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     action: {
       type: String,
-      enum: ["create", "update", "delete", "login", "logout", "access", "export"],
+      enum: ["create", "update", "upsert", "delete", "login", "logout", "access", "export"],
       required: true,
     },
     resource: { type: String, required: true },

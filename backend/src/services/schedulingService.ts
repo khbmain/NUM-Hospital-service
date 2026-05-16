@@ -1,4 +1,5 @@
 import { UserInputError } from "apollo-server-errors";
+import { DateTime } from "luxon";
 import { Appointment } from "../models/appointmentModel";
 import { Resource } from "../models/resourceModel";
 import { Service } from "../models/serviceModel";
@@ -11,6 +12,7 @@ import { createNotification } from "./notificationService";
 import { sendEmail } from "../utils/helper";
 
 const ACTIVE_APPOINTMENT_STATUSES = { $nin: ["cancelled", "no_show"] };
+const HOSPITAL_TIME_ZONE = process.env.HOSPITAL_TIME_ZONE || "Asia/Ulaanbaatar";
 const LUNCH_START_TIME = process.env.LUNCH_START_TIME || "12:00";
 const LUNCH_END_TIME = process.env.LUNCH_END_TIME || "13:00";
 const SCHEDULE_ADMIN_ROLES = ["superadmin"];
@@ -35,36 +37,30 @@ async function assertOwnScheduleBlock(block: any, ctx: ContextType) {
 
 function parseTime(date: Date, time: string) {
   const [hours, minutes] = time.split(":").map(Number);
-  const result = new Date(date);
-  result.setHours(hours || 0, minutes || 0, 0, 0);
-  return result;
+  return DateTime.fromJSDate(new Date(date), { zone: HOSPITAL_TIME_ZONE })
+    .set({ hour: hours || 0, minute: minutes || 0, second: 0, millisecond: 0 })
+    .toJSDate();
 }
 
 function formatTime(date: Date) {
-  return `${date.getHours().toString().padStart(2, "0")}:${date
-    .getMinutes()
-    .toString()
-    .padStart(2, "0")}`;
+  return DateTime.fromJSDate(date, { zone: HOSPITAL_TIME_ZONE }).toFormat("HH:mm");
 }
 
 function addMinutes(date: Date, minutes: number) {
   return new Date(date.getTime() + minutes * 60 * 1000);
 }
 
-function getDayBounds(date: Date) {
-  const dayStart = new Date(date);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(date);
-  dayEnd.setHours(23, 59, 59, 999);
-  return { dayStart, dayEnd };
+export function getHospitalDayBounds(date: Date) {
+  const hospitalDate = DateTime.fromJSDate(new Date(date), { zone: HOSPITAL_TIME_ZONE });
+  return {
+    dayStart: hospitalDate.startOf("day").toJSDate(),
+    dayEnd: hospitalDate.endOf("day").toJSDate(),
+  };
 }
 
-function isSameLocalDay(a: Date, b: Date) {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+function getHospitalDayOfWeek(date: Date) {
+  const weekday = DateTime.fromJSDate(new Date(date), { zone: HOSPITAL_TIME_ZONE }).weekday;
+  return weekday === 7 ? 0 : weekday;
 }
 
 function overlaps(startA: Date, endA: Date, startB: Date, endB: Date) {
@@ -478,12 +474,12 @@ export async function getAvailableSlots(
   const interval = resource.slotIntervalMinutes || duration + buffer || 30;
   const capacity = resource.capacity || 1;
 
-  const schedule = resource.workSchedule?.find((item: any) => item.dayOfWeek === new Date(date).getDay())
+  const schedule = resource.workSchedule?.find((item: any) => item.dayOfWeek === getHospitalDayOfWeek(new Date(date)))
     || { startTime: "09:00", endTime: "17:00" };
   const startOfWork = parseTime(new Date(date), schedule.startTime || "09:00");
   const endOfWork = parseTime(new Date(date), schedule.endTime || "17:00");
   const now = new Date();
-  const { dayStart, dayEnd } = getDayBounds(new Date(date));
+  const { dayStart, dayEnd } = getHospitalDayBounds(new Date(date));
 
   const existing: any[] = await Appointment.find({
     scheduledDate: { $gte: dayStart, $lte: dayEnd },
@@ -507,7 +503,7 @@ export async function getAvailableSlots(
   for (let cursor = startOfWork; addMinutes(cursor, duration + buffer) <= endOfWork; cursor = addMinutes(cursor, interval)) {
     const slotEnd = addMinutes(cursor, duration);
     const blockedUntil = addMinutes(slotEnd, buffer);
-    const past = isSameLocalDay(new Date(date), now) && cursor <= now;
+    const past = cursor <= now;
     const lunch = overlapsLunch(new Date(date), cursor, blockedUntil);
     const adminBlock = blocks.find((block) => overlaps(block.startAt, block.endAt, cursor, blockedUntil));
     const overlapCount = existing.filter((appointment) => {
@@ -571,7 +567,7 @@ export async function assertResourceAvailability(input: any) {
   if (overlapsLunch(scheduledDate, scheduledStart, blockedUntil)) {
     throw new UserInputError("Цайны цагт цаг авах боломжгүй");
   }
-  if (isSameLocalDay(scheduledDate, new Date()) && scheduledStart <= new Date()) {
+  if (scheduledStart <= new Date()) {
     throw new UserInputError("Өнгөрсөн цаг дээр цаг авах боломжгүй");
   }
   const adminBlock = await UnavailableBlock.findOne({
@@ -587,7 +583,7 @@ export async function assertResourceAvailability(input: any) {
     throw new UserInputError("Энэ хугацаанд үйлчилгээ авах боломжгүй");
   }
 
-  const { dayStart, dayEnd } = getDayBounds(scheduledDate);
+  const { dayStart, dayEnd } = getHospitalDayBounds(scheduledDate);
   const existing: any[] = await Appointment.find({
     resourceId: resource._id,
     scheduledDate: { $gte: dayStart, $lte: dayEnd },

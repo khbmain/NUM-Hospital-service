@@ -2,7 +2,7 @@ import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { User } from "../models/userModel";
 import { ExternalIdentity } from "../models/externalIdentityModel";
-import { generateToken } from "../utils/auth";
+import { clearAuthCookie, generateToken, setAuthCookie } from "../utils/auth";
 import {
   NUM_SISI_CLIENT_ID,
   NUM_SISI_CLIENT_SECRET,
@@ -17,6 +17,11 @@ import {
 } from "../utils/constants";
 
 const router = Router();
+
+router.post("/auth/logout", (_req, res) => {
+  clearAuthCookie(res);
+  res.status(204).send();
+});
 
 // ─── Initiate OAuth ─────────────────────────────────────────
 router.get("/auth/sisi", (req, res) => {
@@ -144,8 +149,8 @@ router.get("/auth/sisi/callback", async (req, res) => {
       role: user.role as string,
     });
 
-    // Redirect to frontend with token
-    res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+    setAuthCookie(res, token);
+    res.redirect(`${frontendUrl}/auth/callback`);
   } catch (error: any) {
     console.error("OAuth callback error:", error);
     res.redirect(`${fallbackUrl}/login?error=oauth_failed`);

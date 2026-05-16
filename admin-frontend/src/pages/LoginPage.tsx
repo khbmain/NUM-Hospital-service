@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../components/common/ToastProvider";
-import { Lock, Phone, ArrowRight } from "lucide-react";
+import { AtSign, Lock, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const [phone, setPhone] = useState("");
@@ -42,15 +42,14 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-surface-700 mb-1">Утасны дугаар</label>
+              <label className="block text-sm font-medium text-surface-700 mb-1">Утас эсвэл имэйл</label>
               <div className="relative">
-                <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
+                <AtSign size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
                 <input
-                  type="tel"
-                  inputMode="tel"
+                  type="text"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="99112233"
+                  placeholder="85999001 эсвэл staff1@bulk-test.num.edu.mn"
                   className="input-field pl-9"
                   required
                 />

@@ -1,0 +1,71 @@
+{
+  "deletedAt": "2026-05-15T07:14:53.971Z",
+  "target": {
+    "email": "17b1num2078@stud.num.edu.mn",
+    "registrationNumbers": [
+      "ОМ99112531",
+      "OM99112531"
+    ]
+  },
+  "deletedUsers": [
+    {
+      "_id": "6a06c6650c48b260d7f1f62c",
+      "email": "17b1num2078@stud.num.edu.mn",
+      "role": "patient",
+      "firstname": "Хишигбаяр",
+      "lastname": "Бал",
+      "status": "active",
+      "phoneVerified": false,
+      "createdAt": "2026-05-15T07:08:21.802Z",
+      "updatedAt": "2026-05-15T07:08:21.948Z",
+      "__v": 0,
+      "lastLoginAt": "2026-05-15T07:08:21.946Z"
+    }
+  ],
+  "deletedPatients": [
+    {
+      "_id": "6a06a1ff13c80763031d0496",
+      "userId": "6a068185959157bdc1ecdb9e",
+      "registrationNumber": "ОМ99112531",
+      "firstname": "Хишигбаяр",
+      "lastname": "Бал",
+      "phone": "99335671",
+      "email": "17b1num2078@stud.num.edu.mn",
+      "gender": "male",
+      "birthdate": "1999-11-15T12:00:00.000Z",
+      "category": "external",
+      "bloodType": "unknown",
+      "allergies": [
+        "Нар"
+      ],
+      "chronicConditions": [],
+      "regularMedications": [],
+      "medicalWarnings": [],
+      "profileCompletedAt": "2026-05-15T04:33:03.635Z",
+      "status": "active",
+      "registeredBy": "6a068185959157bdc1ecdb9e",
+      "createdAt": "2026-05-15T04:33:03.642Z",
+      "updatedAt": "2026-05-15T04:33:03.642Z",
+      "__v": 0
+    }
+  ],
+  "skippedUsers": [
+    {
+      "reason": "Patient was linked to this user; not deleted because it is not the target email account.",
+      "user": {
+        "_id": "6a068185959157bdc1ecdb9e",
+        "password": "$2b$10$Vj/eF8HEzDZ4Rsv9B7cUsep84JB8qTpRD8L7tWExEdPtE1Kwz7lbK",
+        "phone": "99335671",
+        "role": "superadmin",
+        "firstname": "Хишигбаяр",
+        "lastname": "Бал",
+        "status": "active",
+        "phoneVerified": true,
+        "createdAt": "2026-05-15T02:14:29.738Z",
+        "updatedAt": "2026-05-15T06:51:23.046Z",
+        "__v": 0,
+        "lastLoginAt": "2026-05-15T06:51:23.046Z"
+      }
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import notificationTypeDefs from "./notification.typeDefs";
 import schedulingTypeDefs from "./scheduling.typeDefs";
 import icdTypeDefs from "./icd.typeDefs";
 import reportTypeDefs from "./report.typeDefs";
+import satisfactionSurveyTypeDefs from "./satisfactionSurvey.typeDefs";
 
 const rootTypeDefs = gql`
   scalar Upload
@@ -19,6 +20,7 @@ const rootTypeDefs = gql`
 
   type Query {
     me: User
+    listAuditLogs(filter: AuditLogFilterInput): AuditLogList!
 
     getUser(_id: ID!): User
     listUsers(role: String!): [User!]!
@@ -63,11 +65,16 @@ const rootTypeDefs = gql`
     icd11Children(uri: String!, language: String): [IcdEntity!]!
     icd11Search(q: String!, language: String): [IcdEntity!]!
 
-    monthlyReport(month: String!): MonthlyReport!
+    monthlyReport(month: String, dateFrom: Date, dateTo: Date): MonthlyReport!
+    getActiveSatisfactionSurveyTemplate: SatisfactionSurveyTemplate!
+    getMySatisfactionSurvey: SatisfactionSurvey
+    getMySatisfactionSurveyRequirement: SatisfactionSurveyRequirement!
+    listSatisfactionSurveys: [SatisfactionSurvey!]!
   }
 
   type Mutation {
     loginUser(phone: String!, password: String!): AuthPayload!
+    logoutUser: Boolean!
     sendEmailLoginOTP(email: String!): String!
     loginWithEmailOTP(email: String!, code: String!): AuthPayload!
     registerUser(input: RegisterUserInput!): User!
@@ -114,10 +121,40 @@ const rootTypeDefs = gql`
     updatePrescriptionStatus(_id: ID!, status: String!): Prescription!
 
     readNotifications(ids: [ID!]!): [Notification!]!
+    submitSatisfactionSurvey(input: SubmitSatisfactionSurveyInput!): SatisfactionSurvey!
+    updateSatisfactionSurveyTemplate(input: UpdateSatisfactionSurveyTemplateInput!): SatisfactionSurveyTemplate!
+    removeSatisfactionSurveyTemplate: RemoveSatisfactionSurveyTemplatePayload!
   }
 
   type Subscription {
     notification: Json
+  }
+
+  type AuditLog {
+    _id: ID!
+    user: User
+    action: String!
+    resource: String!
+    resourceId: String
+    details: Json
+    ipAddress: String
+    userAgent: String
+    createdAt: Date
+  }
+
+  type AuditLogList {
+    logs: [AuditLog!]!
+    total: Int!
+    page: Int!
+    limit: Int!
+  }
+
+  input AuditLogFilterInput {
+    action: String
+    resource: String
+    userId: ID
+    page: Int
+    limit: Int
   }
 `;
 
@@ -135,4 +172,5 @@ export default [
   schedulingTypeDefs,
   icdTypeDefs,
   reportTypeDefs,
+  satisfactionSurveyTypeDefs,
 ];

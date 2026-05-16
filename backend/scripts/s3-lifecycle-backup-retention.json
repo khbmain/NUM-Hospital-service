@@ -1,0 +1,14 @@
+{
+  "Rules": [
+    {
+      "ID": "num-hospital-mongodb-backup-7-day-retention",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/mongodb/"
+      },
+      "Expiration": {
+        "Days": 7
+      }
+    }
+  ]
+}

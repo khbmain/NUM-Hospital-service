@@ -7,8 +7,12 @@ import { Prescription } from "../models/prescriptionModel";
 import { Staff } from "../models/staffModel";
 import { ContextType } from "../graphql/context";
 import { requireRole, requireAuth } from "../utils/auth";
+import { messageSendToNumber, sendEmail } from "../utils/helper";
+import { PATIENT_FRONTEND_URL } from "../utils/constants";
 import { UserInputError } from "apollo-server-errors";
 import { logAudit } from "./auditService";
+import { createNotification } from "./notificationService";
+import { ensurePatientAccountByPhone } from "./authService";
 
 const POPULATE_FIELDS = [
   { path: "patientId" },
@@ -44,6 +48,81 @@ function formatTime(date: Date) {
     .getMinutes()
     .toString()
     .padStart(2, "0")}`;
+}
+
+function getPatientPortalUrl(appointmentId?: any) {
+  const baseUrl = PATIENT_FRONTEND_URL || process.env.CLIENT_URL || "http://202.131.1.77:3100";
+  const cleanBaseUrl = baseUrl.replace(/\/+$/, "");
+  return appointmentId ? `${cleanBaseUrl}/appointments/${appointmentId}` : `${cleanBaseUrl}/visits`;
+}
+
+function formatDateTime(value?: Date | null) {
+  if (!value) return "";
+  return new Date(value).toLocaleString("mn-MN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+async function notifyPatientVisitCompleted(visit: any) {
+  const populatedVisit: any = await Visit.findById(visit._id)
+    .populate([
+      { path: "patientId", populate: [{ path: "userId" }] },
+      { path: "appointmentId", populate: [{ path: "serviceId" }] },
+    ]);
+  const patient: any = populatedVisit?.patientId;
+  if (!patient) return;
+
+  const appointment: any = populatedVisit.appointmentId;
+  const portalUrl = getPatientPortalUrl(appointment?._id);
+  const patientName = `${patient.lastname || ""} ${patient.firstname || ""}`.trim();
+  const dateLabel = formatDateTime(populatedVisit.completedAt || populatedVisit.visitDate);
+  const serviceName = appointment?.serviceId?.name || "үзлэг";
+  const subject = "NUM Hospital: Үзлэгийн мэдээлэл бэлэн боллоо";
+  const baseMessage = [
+    `Сайн байна уу${patientName ? `, ${patientName}` : ""}.`,
+    `Таны ${dateLabel}-ны ${serviceName}ийн мэдээлэл patient портал дээр бэлэн боллоо.`,
+    `Өөрийн үзлэгийн мэдээллээ харах бол энэ линкээр орно уу: ${portalUrl}`,
+  ].join("\n");
+
+  try {
+    if (patient.userId) {
+      const userId = patient.userId._id?.toString() || patient.userId.toString();
+      await createNotification({
+        userId,
+        title: "Үзлэгийн мэдээлэл бэлэн боллоо",
+        body: { visitId: populatedVisit._id, appointmentId: appointment?._id, url: portalUrl },
+        type: "treatment",
+      });
+    }
+
+    const email = patient.email || patient.userId?.email;
+    if (email) {
+      try {
+        const result = await sendEmail({ to: email, subject, text: baseMessage });
+        if (result === "Email sent") return;
+      } catch (emailError) {
+        console.error("Failed to send completed visit email", emailError);
+      }
+    }
+
+    if (patient.phone) {
+      await ensurePatientAccountByPhone(patient);
+      await messageSendToNumber({
+        phoneNumber: patient.phone,
+        message: [
+          "NUM Hospital: Таны үзлэг дууслаа.",
+          "Та үзлэгийн мэдээллээ шалгах бол доорх линкээр орно уу.",
+          `Линк: ${portalUrl}`,
+        ].join("\n"),
+      });
+    }
+  } catch (error) {
+    console.error("Failed to notify patient about completed visit", error);
+  }
 }
 
 async function createWalkInAppointment(input: any, doctorId: any, ctx: ContextType) {
@@ -187,6 +266,12 @@ export async function createVisit(
       });
       return existingVisit.populate(POPULATE_FIELDS);
     }
+
+    const appointment = await Appointment.findById(input.appointmentId);
+    if (!appointment) throw new UserInputError("Цаг захиалга олдсонгүй");
+    if (["completed", "cancelled", "no_show"].includes(appointment.status)) {
+      throw new UserInputError("Энэ цагтай холбогдсон үзлэгийн бүртгэл олдсонгүй");
+    }
   }
 
   const doctorId = doctorStaff?._id || input.doctorId;
@@ -260,6 +345,8 @@ export async function completeVisit(
       status: "completed",
     });
   }
+
+  await notifyPatientVisitCompleted(visit);
 
   await logAudit({
     userId: ctx._id,

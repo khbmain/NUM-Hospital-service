@@ -1,13 +1,39 @@
 import { Appointment } from "../models/appointmentModel";
 import { Visit } from "../models/visitModel";
+import { Staff } from "../models/staffModel";
 import { ContextType } from "../graphql/context";
 import { requireRole } from "../utils/auth";
+import { UserInputError } from "apollo-server-errors";
 
 function getMonthBounds(month: string) {
   const [year, monthIndex] = month.split("-").map(Number);
   const start = new Date(year, monthIndex - 1, 1);
   const end = new Date(year, monthIndex, 1);
   return { start, end };
+}
+
+function startOfDay(date: Date) {
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  return value;
+}
+
+function nextDay(date: Date) {
+  const value = startOfDay(date);
+  value.setDate(value.getDate() + 1);
+  return value;
+}
+
+function getReportBounds({ month, dateFrom, dateTo }: { month?: string; dateFrom?: Date; dateTo?: Date }) {
+  if (dateFrom || dateTo) {
+    if (!dateFrom || !dateTo) throw new Error("dateFrom болон dateTo хоёуланг оруулна уу");
+    const start = startOfDay(dateFrom);
+    const end = nextDay(dateTo);
+    if (start >= end) throw new Error("Эхлэх огноо дуусах огнооноос өмнө байх ёстой");
+    return { start, end };
+  }
+
+  return getMonthBounds(month || new Date().toISOString().slice(0, 7));
 }
 
 const AGE_GROUPS = [
@@ -63,19 +89,39 @@ function increment(map: Record<string, number>, key: string) {
   map[key] = (map[key] || 0) + 1;
 }
 
-export async function monthlyReport(_: any, { month }: { month: string }, ctx: ContextType) {
+export async function monthlyReport(
+  _: any,
+  { month, dateFrom, dateTo }: { month?: string; dateFrom?: Date; dateTo?: Date },
+  ctx: ContextType,
+) {
   requireRole("doctor", "superadmin")(ctx);
-  const { start, end } = getMonthBounds(month);
+  const { start, end } = getReportBounds({ month, dateFrom, dateTo });
 
-  const appointments: any[] = await Appointment.find({
+  const appointmentQuery: any = {
     scheduledDate: { $gte: start, $lt: end },
     status: "completed",
-  }).populate("patientId serviceId resourceId doctorId assignedStaffId");
-
-  const visits: any[] = await Visit.find({
+  };
+  const visitQuery: any = {
     visitDate: { $gte: start, $lt: end },
     status: "completed",
-  }).populate([
+  };
+
+  if (ctx.role === "doctor") {
+    const staff = await Staff.findOne({ userId: ctx._id }).select("_id");
+    if (!staff) throw new UserInputError("Эмчийн ажилтны бүртгэл олдсонгүй");
+
+    appointmentQuery.$or = [
+      { doctorId: staff._id },
+      { assignedStaffId: staff._id },
+      { nurseId: staff._id },
+    ];
+    visitQuery.doctorId = staff._id;
+  }
+
+  const appointments: any[] = await Appointment.find(appointmentQuery)
+    .populate("patientId serviceId resourceId doctorId assignedStaffId");
+
+  const visits: any[] = await Visit.find(visitQuery).populate([
     { path: "patientId" },
     { path: "doctorId", populate: { path: "userId" } },
   ]);
@@ -120,7 +166,7 @@ export async function monthlyReport(_: any, { month }: { month: string }, ctx: C
     Object.entries(input).map(([label, count]) => ({ label, count }));
 
   return {
-    month,
+    month: month || `${start.toISOString().slice(0, 10)} - ${new Date(end.getTime() - 1).toISOString().slice(0, 10)}`,
     completedAppointments: appointments.length,
     completedVisits: visits.length,
     ageGroups: AGE_GROUPS,

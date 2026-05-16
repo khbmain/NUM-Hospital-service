@@ -6,7 +6,7 @@ import { CREATE_APPOINTMENT, UPSERT_MY_PATIENT_PROFILE } from '../graphql/mutati
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import EmptyState from '../components/common/EmptyState';
 import { useToast } from '../components/common/ToastProvider';
-import { ArrowLeft, ArrowRight, Check, Clock, CalendarDays, ClipboardList, UserCheck, Activity, Ban, Lock, Utensils } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Clock, CalendarDays, ClipboardList, UserCheck, Activity, Ban, Lock, Utensils, Info, X } from 'lucide-react';
 
 const steps = ['Миний мэдээлэл', 'Үйлчилгээ', 'Сонголт', 'Өдөр & Цаг', 'Баталгаажуулах'];
 
@@ -31,6 +31,13 @@ const emptyProfile = {
 };
 
 const registrationNumberPattern = /^[А-ЯЁӨҮ]{2}[0-9]{8}$/;
+
+type SelectionDetail = {
+  title: string;
+  eyebrow?: string;
+  description?: string;
+  details?: { label: string; value?: string | number | null }[];
+};
 
 function splitList(value: string) {
   return value.split(',').map(v => v.trim()).filter(Boolean);
@@ -92,13 +99,27 @@ function getSlotReason(slot: any) {
   );
 }
 
+function isPastSlot(slot: any) {
+  if (!slot.startsAt) return false;
+  const startsAt = new Date(slot.startsAt);
+  return !Number.isNaN(startsAt.getTime()) && startsAt.getTime() <= Date.now();
+}
+
+function normalizeSlot(slot: any) {
+  return slot.available && isPastSlot(slot)
+    ? { ...slot, available: false, status: 'past', reason: 'Өнгөрсөн цаг' }
+    : slot;
+}
+
 function SlotButton({ slot, selected, onSelect }: { slot: any; selected: boolean; onSelect: () => void }) {
-  const isFull = !slot.available;
-  const reason = getSlotReason(slot);
-  const availabilityText = slot.available
+  const isPast = isPastSlot(slot);
+  const status = isPast ? 'past' : slot.status;
+  const isFull = !slot.available || isPast;
+  const reason = isPast ? 'Өнгөрсөн цаг' : getSlotReason(slot);
+  const availabilityText = !isFull
     ? slot.capacity > 1 ? `${slot.remaining} сул` : 'Сул'
     : reason;
-  const StatusIcon = slot.status === 'booked' ? Lock : slot.status === 'past' ? Clock : reason === 'Цайны цаг' ? Utensils : Ban;
+  const StatusIcon = status === 'booked' ? Lock : status === 'past' ? Clock : reason === 'Цайны цаг' ? Utensils : Ban;
 
   return (
     <button
@@ -109,9 +130,9 @@ function SlotButton({ slot, selected, onSelect }: { slot: any; selected: boolean
         selected
           ? 'border-brand-500 bg-brand-500 text-white shadow-lg shadow-brand-500/20'
           : isFull
-            ? slot.status === 'booked'
+            ? status === 'booked'
               ? 'border-amber-200 bg-amber-50 text-amber-800 cursor-not-allowed'
-              : slot.status === 'blocked'
+              : status === 'blocked'
                 ? 'border-red-200 bg-red-50 text-red-800 cursor-not-allowed'
                 : 'border-surface-200 bg-surface-50 text-surface-500 cursor-not-allowed'
             : 'border-surface-200 bg-white text-surface-800 hover:border-brand-300 hover:bg-brand-50/50 hover:shadow-sm'
@@ -126,9 +147,9 @@ function SlotButton({ slot, selected, onSelect }: { slot: any; selected: boolean
           selected
             ? 'bg-white/20 text-white'
             : isFull
-              ? slot.status === 'booked'
+              ? status === 'booked'
                 ? 'bg-amber-100 text-amber-700'
-                : slot.status === 'blocked'
+                : status === 'blocked'
                   ? 'bg-red-100 text-red-700'
                   : 'bg-surface-200 text-surface-500'
               : slot.capacity > 1
@@ -136,10 +157,10 @@ function SlotButton({ slot, selected, onSelect }: { slot: any; selected: boolean
                 : 'bg-brand-50 text-brand-700'
         }`}
       >
-        {!slot.available && <StatusIcon size={10} className="mr-1 inline" />}
+        {isFull && <StatusIcon size={10} className="mr-1 inline" />}
         {availabilityText}
       </span>
-      {!slot.available && (
+      {isFull && reason !== availabilityText && (
         <span className="mt-1 block text-[10px] leading-snug opacity-90">{reason}</span>
       )}
       {slot.capacity > 1 && (
@@ -150,6 +171,64 @@ function SlotButton({ slot, selected, onSelect }: { slot: any; selected: boolean
           />
         </div>
       )}
+    </button>
+  );
+}
+
+function SelectionDetailModal({ detail, onClose }: { detail: SelectionDetail | null; onClose: () => void }) {
+  if (!detail) return null;
+
+  const visibleDetails = (detail.details || []).filter((item) => item.value !== undefined && item.value !== null && item.value !== '');
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-6" role="dialog" aria-modal="true" aria-labelledby="selection-detail-title">
+      <button type="button" aria-label="Хаах" className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative max-h-[85vh] w-full max-w-lg overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-2xl">
+        <div className="flex items-start gap-3 border-b border-surface-100 p-5">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+            <Info size={19} />
+          </div>
+          <div className="min-w-0 flex-1">
+            {detail.eyebrow && <p className="text-xs font-medium text-brand-600">{detail.eyebrow}</p>}
+            <h2 id="selection-detail-title" className="mt-0.5 text-base font-display text-surface-900">{detail.title}</h2>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-surface-400 transition hover:bg-surface-100 hover:text-surface-700" aria-label="Хаах">
+            <X size={17} />
+          </button>
+        </div>
+        <div className="max-h-[60vh] overflow-y-auto p-5">
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-surface-700">
+            {detail.description || 'Тайлбар оруулаагүй байна.'}
+          </p>
+          {visibleDetails.length > 0 && (
+            <div className="mt-4 grid gap-2 rounded-2xl bg-surface-50 p-4 text-sm">
+              {visibleDetails.map((item) => (
+                <div key={item.label} className="flex justify-between gap-4">
+                  <span className="text-surface-500">{item.label}</span>
+                  <span className="text-right font-medium text-surface-800">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end border-t border-surface-100 bg-surface-50 px-5 py-4">
+          <button type="button" onClick={onClose} className="btn-secondary text-sm">Хаах</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoIconButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-surface-200 text-surface-500 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-200"
+      title={label}
+      aria-label={label}
+    >
+      <Info size={16} />
     </button>
   );
 }
@@ -167,6 +246,7 @@ export default function AppointmentBookPage() {
   const [time, setTime] = useState('');
   const [complaint, setComplaint] = useState('');
   const [profileEditing, setProfileEditing] = useState(true);
+  const [selectionDetail, setSelectionDetail] = useState<SelectionDetail | null>(null);
 
   const { data: patientData, loading: patientLoading, refetch: refetchProfile } = useQuery(MY_PATIENT_PROFILE);
   const { data: serviceData, loading: serviceLoading } = useQuery(LIST_SERVICES);
@@ -193,10 +273,12 @@ export default function AppointmentBookPage() {
 
   const patient = patientData?.getMyPatientProfile;
   const services = serviceData?.listServices || [];
-  const doctors = doctorData?.getDoctors || [];
+  const doctorsFromQuery = doctorData?.getDoctors || [];
+  const assignedDoctors = service?.requiresDoctor ? (service.assignedStaffs || []) : [];
+  const doctors = assignedDoctors.length > 0 ? assignedDoctors : doctorsFromQuery;
   const resources = resourceData?.listResources || [];
-  const slots = slotData?.getAvailableSlots || [];
-  const availableSlots = slots.filter((slot: any) => slot.available);
+  const slots = (slotData?.getAvailableSlots || []).map(normalizeSlot);
+  const availableSlots = slots.filter((slot: any) => slot.available && !isPastSlot(slot));
   const unavailableReasonSummary = Object.entries(
     slots
       .filter((slot: any) => !slot.available)
@@ -208,6 +290,15 @@ export default function AppointmentBookPage() {
   )
     .map(([reason, count]) => `${reason}: ${count}`)
     .join(' · ');
+
+  useEffect(() => {
+    if (!time) return;
+    const selectedSlot = slots.find((slot: any) => slot.time === time);
+    if (selectedSlot && (!selectedSlot.available || isPastSlot(selectedSlot))) {
+      setTime('');
+    }
+  }, [slotData, time]);
+
   useEffect(() => {
     if (!patient) return;
     const isInitialProfile = !patient.profileCompletedAt;
@@ -243,6 +334,46 @@ export default function AppointmentBookPage() {
 
   const profileComplete = isProfileComplete(profile);
   const selectionReady = service?.requiresDoctor ? Boolean(doctor) : Boolean(resource);
+
+  const openServiceDetail = () => {
+    setSelectionDetail({
+      title: service?.name || 'Үйлчилгээ',
+      eyebrow: 'Үйлчилгээний тайлбар',
+      description: service?.description,
+      details: [
+        { label: 'Үргэлжлэх хугацаа', value: service?.defaultDurationMinutes ? `${service.defaultDurationMinutes} мин` : null },
+        { label: 'Амраах хугацаа', value: service?.defaultBufferMinutes ? `${service.defaultBufferMinutes} мин` : null },
+      ],
+    });
+  };
+
+  const openDoctorDetail = (doc: any) => {
+    setSelectionDetail({
+      title: `${doc.userId?.lastname?.charAt(0) || ''}.${doc.userId?.firstname || 'Эмч'}`,
+      eyebrow: 'Эмчийн сонголт',
+      description: service?.description,
+      details: [
+        { label: 'Мэргэжил', value: doc.specialization || 'Эмч' },
+        { label: 'Тасаг', value: doc.department?.name },
+        { label: 'Үйлчилгээ', value: service?.name },
+      ],
+    });
+  };
+
+  const openResourceDetail = (item: any) => {
+    setSelectionDetail({
+      title: item.name,
+      eyebrow: 'Төхөөрөмж / нөөцийн тайлбар',
+      description: item.notes || service?.description,
+      details: [
+        { label: 'Өрөө', value: item.room },
+        { label: 'Төрөл', value: item.type },
+        { label: 'Багтаамж', value: item.capacity || 1 },
+        { label: 'Үргэлжлэх хугацаа', value: (item.defaultDurationMinutes || service?.defaultDurationMinutes) ? `${item.defaultDurationMinutes || service?.defaultDurationMinutes} мин` : null },
+        { label: 'Амраах хугацаа', value: (item.defaultBufferMinutes ?? service?.defaultBufferMinutes) ? `${item.defaultBufferMinutes ?? service?.defaultBufferMinutes} мин` : null },
+      ],
+    });
+  };
 
   const goToPreviousStep = () => {
     if (step > 0) setStep(step - 1);
@@ -332,6 +463,7 @@ export default function AppointmentBookPage() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      <SelectionDetailModal detail={selectionDetail} onClose={() => setSelectionDetail(null)} />
       <button onClick={goToPreviousStep} className="btn-ghost mb-4 -ml-2">
         <ArrowLeft size={16} /> Буцах
       </button>
@@ -518,29 +650,38 @@ export default function AppointmentBookPage() {
 
       {step === 2 && (
         <div className="space-y-3 pb-24 sm:pb-0">
-          <p className="text-sm text-surface-500">{service?.name} хийх хүн/төхөөрөмж сонгоно уу</p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm text-surface-500">{service?.name} хийх хүн/төхөөрөмж сонгоно уу</p>
+            <InfoIconButton label="Үйлчилгээний тайлбар харах" onClick={openServiceDetail} />
+          </div>
           {service?.requiresDoctor ? (
             doctorLoading ? <LoadingSpinner /> : doctors.length === 0 ? (
               <EmptyState icon={<UserCheck size={40} />} title="Сонгох эмч алга" description="Энэ үйлчилгээнд боломжтой эмч тохируулаагүй байна." />
             ) : doctors.map((doc: any) => {
               const selected = doctor?._id === doc._id;
               return (
-                <button
+                <div
                   key={doc._id}
-                  onClick={() => { setDoctor(doc); setDate(today); setTime(''); }}
-                  className={`card w-full text-left flex items-center gap-3 transition ${
+                  className={`card w-full flex items-center gap-3 transition ${
                     selected ? '!border-brand-500 bg-brand-50/60 ring-2 ring-brand-100' : 'hover:border-brand-300'
                   }`}
                 >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${selected ? 'bg-brand-500 text-white' : 'bg-brand-100 text-brand-700'}`}>
-                    <UserCheck size={18} />
-                  </div>
-                  <div className="flex-1">
-                    <span className="font-medium text-surface-800 text-sm">{doc.userId?.lastname?.charAt(0)}.{doc.userId?.firstname}</span>
-                    <p className="text-xs text-surface-400">{doc.specialization || 'Эмч'}</p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setDoctor(doc); setDate(today); setTime(''); }}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <div className={`w-10 h-10 rounded-full flex flex-shrink-0 items-center justify-center ${selected ? 'bg-brand-500 text-white' : 'bg-brand-100 text-brand-700'}`}>
+                      <UserCheck size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-surface-800 text-sm">{doc.userId?.lastname?.charAt(0)}.{doc.userId?.firstname}</span>
+                      <p className="truncate text-xs text-surface-400">{doc.specialization || 'Эмч'}</p>
+                    </div>
+                  </button>
+                  <InfoIconButton label={`${doc.userId?.firstname || 'Эмч'} тайлбар харах`} onClick={() => openDoctorDetail(doc)} />
                   {selected && <Check size={17} className="text-brand-600" />}
-                </button>
+                </div>
               );
             })
           ) : resourceLoading ? <LoadingSpinner /> : resources.length === 0 ? (
@@ -548,22 +689,28 @@ export default function AppointmentBookPage() {
           ) : resources.map((item: any) => {
             const selected = resource?._id === item._id;
             return (
-              <button
+              <div
                 key={item._id}
-                onClick={() => { setResource(item); setDate(today); setTime(''); }}
-                className={`card w-full text-left flex items-center gap-3 transition ${
+                className={`card w-full flex items-center gap-3 transition ${
                   selected ? '!border-brand-500 bg-brand-50/60 ring-2 ring-brand-100' : 'hover:border-brand-300'
                 }`}
               >
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${selected ? 'bg-brand-500 text-white' : 'bg-emerald-50 text-emerald-600'}`}>
-                  <Activity size={18} />
-                </div>
-                <div className="flex-1">
-                  <span className="font-medium text-surface-800 text-sm">{item.name}</span>
-                  <p className="text-xs text-surface-400">Багтаамж {item.capacity || 1} {item.defaultBufferMinutes ? `· амраах ${item.defaultBufferMinutes} мин` : ''}</p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => { setResource(item); setDate(today); setTime(''); }}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                >
+                  <div className={`w-10 h-10 rounded-lg flex flex-shrink-0 items-center justify-center ${selected ? 'bg-brand-500 text-white' : 'bg-emerald-50 text-emerald-600'}`}>
+                    <Activity size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-surface-800 text-sm">{item.name}</span>
+                    <p className="truncate text-xs text-surface-400">Багтаамж {item.capacity || 1} {item.defaultBufferMinutes ? `· амраах ${item.defaultBufferMinutes} мин` : ''}</p>
+                  </div>
+                </button>
+                <InfoIconButton label={`${item.name} тайлбар харах`} onClick={() => openResourceDetail(item)} />
                 {selected && <Check size={17} className="text-brand-600" />}
-              </button>
+              </div>
             );
           })}
           {(service?.requiresDoctor ? doctors.length > 0 : resources.length > 0) && (
@@ -626,7 +773,7 @@ export default function AppointmentBookPage() {
               )}
             </div>
           )}
-          <textarea value={complaint} onChange={e => setComplaint(e.target.value)} placeholder="Шалтгаан / гомдол" rows={3} className="input-field resize-none" />
+          <textarea value={complaint} onChange={e => setComplaint(e.target.value)} placeholder="Зовиур / үзүүлэх шалтгаан (заавал биш)" rows={3} className="input-field resize-none" />
           <div className="sticky bottom-3 z-20 rounded-2xl bg-white/95 p-3 shadow-xl shadow-surface-900/10 ring-1 ring-surface-200 backdrop-blur">
             <button onClick={goToNextStep} disabled={!time} className="btn-primary w-full">Үргэлжлүүлэх <ArrowRight size={16} /></button>
           </div>
@@ -651,7 +798,7 @@ export default function AppointmentBookPage() {
               <div className="flex justify-between gap-4"><span className="text-surface-500">Үргэлжлэх хугацаа</span><span className="text-right font-medium">{resource?.defaultDurationMinutes || service?.defaultDurationMinutes || '-'} мин</span></div>
               {complaint && (
                 <div className="rounded-xl bg-surface-50 p-3">
-                  <span className="text-surface-500">Шалтгаан / гомдол</span>
+                  <span className="text-surface-500">Зовиур / үзүүлэх шалтгаан</span>
                   <p className="mt-1 whitespace-pre-wrap font-medium text-surface-800">{complaint}</p>
                 </div>
               )}

@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   Stethoscope,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -19,6 +20,7 @@ const navItems = [
   { path: '/appointments', label: 'Миний цагууд', icon: Calendar },
   { path: '/visits', label: 'Үзлэгийн түүх', icon: Stethoscope },
   { path: '/prescriptions', label: 'Жор', icon: Pill },
+  { path: '/survey', label: 'Судалгаа', icon: ClipboardCheck },
   { path: '/profile', label: 'Профайл', icon: User },
 ];
 

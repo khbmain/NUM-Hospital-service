@@ -2,7 +2,6 @@ import gql from "graphql-tag";
 
 export default gql`
   type AuthPayload {
-    token: String!
     user: User!
   }
 
@@ -12,7 +11,7 @@ export default gql`
 
   input RegisterUserInput {
     phone: String!
-    password: String!
+    password: String
     firstname: String!
     lastname: String!
     email: String

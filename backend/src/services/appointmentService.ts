@@ -5,7 +5,7 @@ import { ContextType } from "../graphql/context";
 import { requireRole, requireAuth } from "../utils/auth";
 import { UserInputError } from "apollo-server-errors";
 import { logAudit } from "./auditService";
-import { assertResourceAvailability } from "./schedulingService";
+import { assertResourceAvailability, getHospitalDayBounds } from "./schedulingService";
 
 const APPOINTMENT_POPULATE = [
   { path: "patientId" },
@@ -115,10 +115,7 @@ export async function getDoctorQueue(
 ) {
   requireRole("doctor", "superadmin")(ctx);
 
-  const dayStart = new Date(date);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(date);
-  dayEnd.setHours(23, 59, 59, 999);
+  const { dayStart, dayEnd } = getHospitalDayBounds(date);
 
   return Appointment.find({
     doctorId,
@@ -145,10 +142,7 @@ export async function getAvailableSlots(
     allSlots.push(`${h.toString().padStart(2, "0")}:30`);
   }
 
-  const dayStart = new Date(date);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(date);
-  dayEnd.setHours(23, 59, 59, 999);
+  const { dayStart, dayEnd } = getHospitalDayBounds(date);
 
   const existing = await Appointment.find({
     doctorId,
@@ -183,10 +177,7 @@ export async function createAppointment(
 
   const timing = await assertResourceAvailability(input);
 
-  const dayStart = new Date(input.scheduledDate);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(input.scheduledDate);
-  dayEnd.setHours(23, 59, 59, 999);
+  const { dayStart, dayEnd } = getHospitalDayBounds(new Date(input.scheduledDate));
 
   if (!timing.resource && input.doctorId) {
     const conflict = await Appointment.findOne({
@@ -210,6 +201,7 @@ export async function createAppointment(
     ...input,
     serviceId: input.serviceId || timing.service?._id,
     resourceId: input.resourceId || timing.resource?._id,
+    assignedStaffId: input.assignedStaffId || (!input.doctorId && timing.resource?.staffId ? timing.resource.staffId : undefined),
     scheduledDate: timing.scheduledDate,
     scheduledStart: timing.scheduledStart,
     scheduledEnd: timing.scheduledEnd,

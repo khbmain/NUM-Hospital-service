@@ -13,6 +13,8 @@ Project тус бүрийн нарийвчилсан setup, env, script, impleme
 - [Backend README](./backend/README.md)
 - [Admin Frontend README](./admin-frontend/README.md)
 - [Patient Frontend README](./patient-frontend/README.md)
+- [Хэрэглэгчийн гарын авлага](./docs/USER_MANUAL.md)
+- [Word хэрэглэгчийн гарын авлага](./docs/NUM-Hospital-Хэрэглэгчийн-гарын-авлага.docx)
 
 ## Гол боломжууд
 

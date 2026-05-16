@@ -6,13 +6,12 @@ import {
   Users,
   Calendar,
   Stethoscope,
-  Heart,
-  Package,
   UserCog,
   Boxes,
   BarChart3,
   Shield,
   Settings,
+  ClipboardCheck,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -34,13 +33,12 @@ const navigation: NavItem[] = [
   { label: "Цаг захиалга", icon: Calendar, path: "/appointments", roles: ["receptionist", "doctor", "nurse", "superadmin"] },
   { label: "Цаг хаах", icon: Calendar, path: "/schedule/unavailable", roles: ["doctor", "nurse", "superadmin"] },
   { label: "Эмчийн самбар", icon: Stethoscope, path: "/doctor/queue", roles: ["doctor"] },
-  { label: "Сувилагч", icon: Heart, path: "/nurse/queue", roles: ["nurse"] },
-  { label: "Эм, материал", icon: Package, path: "/inventory", roles: ["nurse", "superadmin"] },
   { label: "Ажилтан", icon: UserCog, path: "/staff", roles: ["superadmin"] },
   { label: "Үйлчилгээ", icon: Boxes, path: "/services", roles: ["superadmin"] },
-  { label: "Тайлан", icon: BarChart3, path: "/reports", roles: ["doctor", "superadmin"] },
+  { label: "Тайлан", icon: BarChart3, path: "/reports", roles: ["receptionist", "doctor", "nurse", "superadmin"] },
+  { label: "Судалгаа", icon: ClipboardCheck, path: "/survey-settings", roles: ["superadmin"] },
   { label: "Аудит", icon: Shield, path: "/audit", roles: ["superadmin"] },
-  { label: "Тохиргоо", icon: Settings, path: "/settings", roles: ["superadmin"] }
+  { label: "Тохиргоо", icon: Settings, path: "/settings", roles: ["receptionist", "doctor", "nurse", "superadmin"] }
 ];
 
 const ROLE_LABELS: Record<string, string> = {

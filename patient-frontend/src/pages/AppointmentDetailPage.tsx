@@ -12,6 +12,28 @@ function formatDate(value?: string) {
   return date.toLocaleDateString('mn-MN', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+function getAppointmentOwner(appointment: any) {
+  if (appointment.doctor?.userId) {
+    return {
+      name: `${appointment.doctor.userId.lastname?.charAt(0) || ''}.${appointment.doctor.userId.firstname || 'Эмч'}`,
+      detail: appointment.doctor.department?.name || appointment.doctor.specialization || '',
+    };
+  }
+  if (appointment.assignedStaff?.userId) {
+    return {
+      name: `${appointment.assignedStaff.userId.lastname?.charAt(0) || ''}.${appointment.assignedStaff.userId.firstname || 'Ажилтан'}`,
+      detail: appointment.assignedStaff.department?.name || appointment.assignedStaff.specialization || '',
+    };
+  }
+  if (appointment.resource?.name) {
+    return {
+      name: appointment.resource.name,
+      detail: appointment.resource.room || (appointment.resource.type === 'device' ? 'Төхөөрөмж' : 'Нөөц'),
+    };
+  }
+  return { name: appointment.service?.name || 'Цагийн дэлгэрэнгүй', detail: '' };
+}
+
 export default function AppointmentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -30,6 +52,7 @@ export default function AppointmentDetailPage() {
   if (loading) return <LoadingSpinner text="Цагийн мэдээлэл ачааллаж байна..." />;
   if (error) return <p className="py-20 text-center text-sm text-red-600">{error.message}</p>;
   if (!appointment) return <p className="py-20 text-center text-sm text-surface-500">Цагийн мэдээлэл олдсонгүй</p>;
+  const owner = getAppointmentOwner(appointment);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -42,8 +65,7 @@ export default function AppointmentDetailPage() {
           <div>
             <h1 className="text-xl font-display text-surface-900">{appointment.service?.name || 'Цагийн дэлгэрэнгүй'}</h1>
             <p className="mt-1 text-sm text-surface-500">
-              {appointment.doctor?.userId?.lastname?.charAt(0)}.{appointment.doctor?.userId?.firstname || appointment.assignedStaff?.userId?.firstname || 'Товлогдоогүй'}
-              {appointment.doctor?.department?.name && ` · ${appointment.doctor.department.name}`}
+              {owner.name}{owner.detail && ` · ${owner.detail}`}
             </p>
           </div>
           <StatusBadge status={appointment.status} />
@@ -161,6 +183,7 @@ export default function AppointmentDetailPage() {
                       {rx.items?.slice(0, 3).map((item: any, index: number) => (
                         <p key={index} className="mt-1 text-sm text-surface-700">
                           {item.medicationName} · {item.dosage} · {item.frequency}
+                          {item.unit && ` · ${item.unit}`}
                         </p>
                       ))}
                     </div>

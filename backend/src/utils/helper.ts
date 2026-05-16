@@ -1,5 +1,22 @@
 import nodemailer from "nodemailer";
 import { MESSAGE_API, NODEMAILER } from "./constants";
+import type SMTPTransport from "nodemailer/lib/smtp-transport";
+
+let emailTransporter: nodemailer.Transporter<SMTPTransport.SentMessageInfo> | null = null;
+
+function getEmailTransporter() {
+  if (!NODEMAILER.user || !NODEMAILER.pass) return null;
+  if (!emailTransporter) {
+    emailTransporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: NODEMAILER.user,
+        pass: NODEMAILER.pass,
+      },
+    });
+  }
+  return emailTransporter;
+}
 
 export function generateOtp(length = 6) {
   let otp = "";
@@ -42,7 +59,7 @@ export async function messageSendToNumber({
     return "SMS API not configured";
   }
 
-  const readySendMessage = `${API}&sendto=${phoneNumber}&message=${message}`;
+  const readySendMessage = `${API}&sendto=${encodeURIComponent(phoneNumber)}&message=${encodeURIComponent(message)}`;
 
   try {
     const response = await fetch(readySendMessage, {
@@ -75,16 +92,11 @@ export async function sendEmailOtp({
     return "Email not configured";
   }
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: NODEMAILER.user,
-      pass: NODEMAILER.pass,
-    },
-  });
+  const transporter = getEmailTransporter();
+  if (!transporter) return "Email not configured";
 
   await transporter.sendMail({
-    from: NODEMAILER.user,
+    from: NODEMAILER.from || NODEMAILER.user,
     to,
     subject: "NUM Hospital нэвтрэх OTP код",
     text: `Таны нэвтрэх OTP код: ${otp}. Код 5 минутын хугацаанд хүчинтэй.`,
@@ -109,16 +121,11 @@ export async function sendEmail({
     return "Email not configured";
   }
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: NODEMAILER.user,
-      pass: NODEMAILER.pass,
-    },
-  });
+  const transporter = getEmailTransporter();
+  if (!transporter) return "Email not configured";
 
   await transporter.sendMail({
-    from: NODEMAILER.user,
+    from: NODEMAILER.from || NODEMAILER.user,
     to,
     subject,
     text,

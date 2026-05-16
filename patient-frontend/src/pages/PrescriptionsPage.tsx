@@ -49,7 +49,7 @@ export default function PrescriptionsPage() {
                       <p className="text-xs text-surface-500">
                         {item.dosage} · {item.frequency}
                         {item.duration && ` · ${item.duration}`}
-                        {item.quantity && ` · ${item.quantity} ${item.unit || ''}`}
+                        {item.quantity ? ` · ${item.quantity} ${item.unit || ''}` : item.unit && ` · ${item.unit}`}
                       </p>
                     </div>
                   </div>

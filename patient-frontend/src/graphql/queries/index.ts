@@ -42,6 +42,47 @@ export const MY_PATIENT_PROFILE = gql`
   }
 `;
 
+export const MY_SATISFACTION_SURVEY = gql`
+  query MySatisfactionSurvey {
+    getMySatisfactionSurvey {
+      _id
+      occupation
+      createdAt
+      overallRating
+    }
+  }
+`;
+
+export const ACTIVE_SATISFACTION_SURVEY_TEMPLATE = gql`
+  query ActiveSatisfactionSurveyTemplate {
+    getActiveSatisfactionSurveyTemplate {
+      _id
+      title
+      description
+      currentVersion
+      questions {
+        key
+        label
+        category
+        order
+        active
+      }
+    }
+  }
+`;
+
+export const MY_SATISFACTION_SURVEY_REQUIREMENT = gql`
+  query MySatisfactionSurveyRequirement {
+    getMySatisfactionSurveyRequirement {
+      required
+      threshold
+      completedServiceCount
+      hasSubmittedCurrentVersion
+      currentVersion
+    }
+  }
+`;
+
 export const MY_APPOINTMENTS = gql`
   query MyAppointments($status: String, $page: Int, $limit: Int) {
     getMyAppointments(status: $status, page: $page, limit: $limit) {
@@ -56,6 +97,12 @@ export const MY_APPOINTMENTS = gql`
         cancelReason
         service { _id name category }
         resource { _id name type capacity }
+        assignedStaff {
+          _id
+          userId { firstname lastname }
+          specialization
+          department { name }
+        }
         doctor {
           _id
           userId { firstname lastname }
@@ -131,6 +178,13 @@ export const LIST_SERVICES = gql`
       requiresDoctor
       requiresNurse
       requiresDevice
+      assignedStaffs {
+        _id
+        userId { firstname lastname }
+        specialization
+        department { _id name }
+        isAvailable
+      }
     }
   }
 `;
@@ -144,6 +198,7 @@ export const LIST_RESOURCES = gql`
       category
       room
       capacity
+      notes
       defaultDurationMinutes
       defaultBufferMinutes
       services { _id name }

@@ -2,10 +2,12 @@ import { User } from "../models/userModel";
 import { Patient } from "../models/patientModel";
 import {
   authenticate,
+  clearAuthCookie,
   encryptPassword,
   generateToken,
   requireAuth,
   requireRole,
+  setAuthCookie,
 } from "../utils/auth";
 import { ContextType } from "../graphql/context";
 import { GraphQLError } from "graphql";
@@ -16,7 +18,7 @@ import {
   sendEmailOtp,
   generateRegistrationNumber,
 } from "../utils/helper";
-import { ROLES } from "../utils/constants";
+import { ADMIN_FRONTEND_URL, PATIENT_FRONTEND_URL, ROLES } from "../utils/constants";
 import { logAudit } from "./auditService";
 
 // ─── Queries ───
@@ -51,13 +53,15 @@ export async function loginUser(
   { phone, password }: { phone: string; password: string },
   ctx: ContextType
 ) {
-  const normalizedPhone = phone.trim();
-  const user = await User.findOne({ phone: normalizedPhone });
+  const loginIdentifier = normalizeLoginIdentifier(phone);
+  const user = await User.findOne(loginIdentifier.includes("@")
+    ? { email: loginIdentifier }
+    : { phone: loginIdentifier });
   if (!user) throw new UserInputError("Хэрэглэгч олдсонгүй");
   if (user.status === "suspended")
     throw new UserInputError("Бүртгэл түр хаагдсан байна");
 
-  if (!authenticate(password, user.password as string)) {
+  if (!user.password || !authenticate(password, user.password as string)) {
     throw new UserInputError("Нууц үг буруу байна");
   }
 
@@ -79,7 +83,14 @@ export async function loginUser(
     ctx,
   });
 
-  return { token, user };
+  setAuthCookie(ctx.res, token);
+
+  return { user };
+}
+
+export async function logoutUser(_: any, __: any, ctx: ContextType) {
+  clearAuthCookie(ctx.res);
+  return true;
 }
 
 export async function registerUser(
@@ -97,17 +108,28 @@ export async function registerUser(
     requireRole("superadmin")(ctx);
   }
 
+  const normalizedPhone = normalizePhone(input.phone);
+  if (!normalizedPhone) throw new UserInputError("Утасны дугаар оруулна уу");
+
   // Check duplicate phone
-  const existing = await User.findOne({ phone: input.phone });
+  const existing = await User.findOne({ phone: normalizedPhone });
   if (existing) throw new UserInputError("Энэ утасны дугаар бүртгэлтэй байна");
 
+  const generatedPassword = generateInitialPassword();
   const userData = {
     ...input,
-    password: encryptPassword(input.password),
+    phone: normalizedPhone,
+    password: encryptPassword(generatedPassword),
   };
 
   const newUser = new User(userData);
   await newUser.save();
+
+  await sendRegistrationSms({
+    phone: normalizedPhone,
+    password: generatedPassword,
+    role: input.role,
+  });
 
   await logAudit({
     userId: ctx._id || newUser._id!.toString(),
@@ -161,6 +183,63 @@ export async function changePassword(
 const otpStore = new Map<string, { code: string; expiresAt: number }>();
 const emailOtpStore = new Map<string, { code: string; expiresAt: number }>();
 const ALLOWED_PATIENT_EMAIL_DOMAINS = ["num.edu.mn", "stud.num.edu.mn"];
+
+export function normalizePhone(phone?: string | null) {
+  return String(phone || "").replace(/\s+/g, "").trim();
+}
+
+function normalizeLoginIdentifier(identifier?: string | null) {
+  const normalized = normalizePhone(identifier);
+  return normalized.includes("@") ? normalized.toLowerCase() : normalized;
+}
+
+export function generateInitialPassword() {
+  return generateOtp(6);
+}
+
+function registrationSiteUrl(role: string) {
+  return role === "patient" ? PATIENT_FRONTEND_URL : ADMIN_FRONTEND_URL;
+}
+
+export function buildRegistrationSmsMessage({
+  phone,
+  password,
+  role,
+}: {
+  phone: string;
+  password: string;
+  role: string;
+}) {
+  const siteUrl = registrationSiteUrl(role).replace(/\/+$/, "");
+  return [
+    `Tanii ner deer burtgel uuslee uname: ${phone} pass: ${password}`,
+    `${siteUrl} urlaar orj code oo solino uu`,
+  ].join("\n");
+}
+
+export async function sendRegistrationSms({
+  phone,
+  password,
+  role,
+}: {
+  phone: string;
+  password: string;
+  role: string;
+}) {
+  const result = await messageSendToNumber({
+    phoneNumber: phone,
+    message: buildRegistrationSmsMessage({ phone, password, role }),
+  });
+
+  if (
+    typeof result === "string" &&
+    /failed|error|not configured/i.test(result)
+  ) {
+    console.error(`Registration SMS was not delivered to ${phone}: ${result}`);
+  }
+
+  return result;
+}
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -239,6 +318,56 @@ async function ensurePatientAccountByEmail(email: string) {
   }
 
   return { user, patient };
+}
+
+export async function ensurePatientAccountByPhone(patientInput: any, password?: string) {
+  const phone = normalizePhone(patientInput?.phone);
+  if (!phone) throw new UserInputError("Өвчтөний утасны дугаар олдсонгүй");
+
+  let user = patientInput?.userId ? await User.findById(patientInput.userId) : null;
+  if (!user) user = await User.findOne({ phone });
+  const generatedPassword = password || generateInitialPassword();
+  let shouldSendRegistrationSms = false;
+
+  const userPayload: any = {
+    phone,
+    firstname: patientInput.firstname || "Patient",
+    lastname: patientInput.lastname || "Self Registered",
+    role: "patient",
+    status: "active",
+    password: encryptPassword(generatedPassword),
+  };
+  if (patientInput.email) userPayload.email = patientInput.email;
+
+  if (!user) {
+    user = await User.create(userPayload);
+    shouldSendRegistrationSms = true;
+  } else {
+    user.phone = phone;
+    user.firstname = user.firstname || userPayload.firstname;
+    user.lastname = user.lastname || userPayload.lastname;
+    if (patientInput.email && !user.email) user.email = patientInput.email;
+    if (password || !user.password) {
+      user.password = userPayload.password;
+      shouldSendRegistrationSms = true;
+    }
+    await user.save();
+  }
+
+  if (!patientInput.userId || patientInput.userId.toString() !== user._id!.toString()) {
+    patientInput.userId = user._id;
+    await patientInput.save();
+  }
+
+  if (shouldSendRegistrationSms) {
+    await sendRegistrationSms({
+      phone,
+      password: generatedPassword,
+      role: "patient",
+    });
+  }
+
+  return user;
 }
 
 export async function forgotPassword(
@@ -355,7 +484,9 @@ export async function loginWithEmailOTP(
     ctx,
   });
 
-  return { token, user };
+  setAuthCookie(ctx.res, token);
+
+  return { user };
 }
 
 export async function initiateOAuth(

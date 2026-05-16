@@ -18,7 +18,7 @@ export default function StaffListPage() {
   const [showForm, setShowForm] = useState(false);
   const [typeFilter, setTypeFilter] = useState('');
   const [formData, setFormData] = useState({
-    firstname: '', lastname: '', phone: '', password: '',
+    firstname: '', lastname: '', phone: '',
     role: 'doctor', staffType: 'doctor', specialization: '', departmentId: '',
   });
   const { toast } = useToast();
@@ -40,7 +40,7 @@ export default function StaffListPage() {
       const { data: userData } = await registerUser({
         variables: {
           input: {
-            phone: formData.phone, password: formData.password,
+            phone: formData.phone,
             firstname: formData.firstname, lastname: formData.lastname,
             role: formData.role,
           },
@@ -56,9 +56,9 @@ export default function StaffListPage() {
           },
         },
       });
-      toast(`${formData.firstname} амжилттай бүртгэгдлээ`, 'success');
+      toast(`${formData.firstname} амжилттай бүртгэгдлээ. Нэвтрэх мэдээлэл SMS-ээр илгээгдлээ`, 'success');
       setShowForm(false);
-      setFormData({ firstname: '', lastname: '', phone: '', password: '', role: 'doctor', staffType: 'doctor', specialization: '', departmentId: '' });
+      setFormData({ firstname: '', lastname: '', phone: '', role: 'doctor', staffType: 'doctor', specialization: '', departmentId: '' });
       refetch();
     } catch (err: any) { toast(err.message || 'Ажилтан бүртгэхэд алдаа гарлаа', 'error'); }
   };
@@ -87,10 +87,6 @@ export default function StaffListPage() {
             <div>
               <label className="block text-xs font-medium text-surface-600 mb-1">Утас *</label>
               <input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="input-field" required />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-surface-600 mb-1">Нууц үг *</label>
-              <input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="input-field" required />
             </div>
             <div>
               <label className="block text-xs font-medium text-surface-600 mb-1">Ажлын төрөл *</label>

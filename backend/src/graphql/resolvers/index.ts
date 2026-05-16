@@ -5,7 +5,7 @@ import { GraphQLScalarType } from "graphql";
 // Auth / User
 import {
   me, getUser, listUsers,
-  loginUser, registerUser, updateMe,
+  loginUser, logoutUser, registerUser, updateMe,
   changePassword, forgotPassword, verifyOTP,
   initiateOAuth, sendEmailLoginOTP, loginWithEmailOTP,
 } from "../../services/authService";
@@ -38,6 +38,15 @@ import {
 
 import { icd11RootChapters, icd11Children, icd11Search } from "../../services/icdService";
 import { monthlyReport } from "../../services/reportService";
+import {
+  getActiveSatisfactionSurveyTemplate,
+  getMySatisfactionSurvey,
+  getMySatisfactionSurveyRequirement,
+  listSatisfactionSurveys,
+  removeSatisfactionSurveyTemplate,
+  submitSatisfactionSurvey,
+  updateSatisfactionSurveyTemplate,
+} from "../../services/satisfactionSurveyService";
 
 // Visit
 import {
@@ -64,6 +73,7 @@ import {
   getMyNotifications, readNotifications,
 } from "../../services/notificationService";
 import { Staff } from "../../models/staffModel";
+import { listAuditLogs } from "../../services/auditService";
 
 const DateScalar = new GraphQLScalarType({
   ...GraphQLDateTimeISO.toConfig(),
@@ -74,6 +84,7 @@ export const resolvers = {
   Query: {
     // Auth
     me,
+    listAuditLogs,
     getUser,
     listUsers,
 
@@ -102,6 +113,10 @@ export const resolvers = {
     icd11Children,
     icd11Search,
     monthlyReport,
+    getActiveSatisfactionSurveyTemplate,
+    getMySatisfactionSurvey,
+    getMySatisfactionSurveyRequirement,
+    listSatisfactionSurveys,
 
     // Visit
     getVisit,
@@ -128,6 +143,7 @@ export const resolvers = {
   Mutation: {
     // Auth
     loginUser,
+    logoutUser,
     sendEmailLoginOTP,
     loginWithEmailOTP,
     registerUser,
@@ -181,6 +197,9 @@ export const resolvers = {
 
     // Notification
     readNotifications,
+    submitSatisfactionSurvey,
+    updateSatisfactionSurveyTemplate,
+    removeSatisfactionSurveyTemplate,
   },
 
   Subscription: {
@@ -233,6 +252,10 @@ export const resolvers = {
   Patient: {
     userId: (parent: any) => parent.userId,
     registeredBy: (parent: any) => parent.registeredBy,
+  },
+
+  AuditLog: {
+    user: (parent: any) => parent.userId,
   },
 
   Resource: {

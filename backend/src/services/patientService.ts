@@ -4,6 +4,7 @@ import { requireRole, requireAuth } from "../utils/auth";
 import { UserInputError } from "apollo-server-errors";
 import { generateRegistrationNumber } from "../utils/helper";
 import { logAudit } from "./auditService";
+import { ensurePatientAccountByPhone, normalizePhone } from "./authService";
 
 function isProfileComplete(input: any) {
   return Boolean(
@@ -100,12 +101,14 @@ export async function createPatient(
   }
 
   const { registrationNumber: _registrationNumber, ...patientInput } = input;
+  if (patientInput.phone) patientInput.phone = normalizePhone(patientInput.phone);
   const patient = new Patient({
     ...patientInput,
     registrationNumber,
     registeredBy: ctx._id,
   });
   await patient.save();
+  if (patient.phone) await ensurePatientAccountByPhone(patient);
 
   await logAudit({
     userId: ctx._id,
@@ -126,10 +129,11 @@ export async function updatePatient(
 ) {
   requireRole("doctor", "superadmin")(ctx);
 
-  const patient = await Patient.findByIdAndUpdate(_id, input, { new: true })
-    .populate("userId registeredBy");
+  if (input.phone) input.phone = normalizePhone(input.phone);
+  const patient = await Patient.findByIdAndUpdate(_id, input, { new: true });
 
   if (!patient) throw new UserInputError("Өвчтөн олдсонгүй");
+  if (patient.phone) await ensurePatientAccountByPhone(patient);
 
   await logAudit({
     userId: ctx._id,
@@ -140,7 +144,7 @@ export async function updatePatient(
     ctx,
   });
 
-  return patient;
+  return patient.populate("userId registeredBy");
 }
 
 export async function upsertMyPatientProfile(

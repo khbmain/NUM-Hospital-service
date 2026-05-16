@@ -72,6 +72,7 @@ export default gql`
     email: String
     gender: String
     birthdate: Date
+    category: String
     bloodType: String
     allergies: [String]
     chronicConditions: [String]

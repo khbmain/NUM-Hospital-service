@@ -4,6 +4,54 @@ export const ME_QUERY = gql`
   query Me { me { _id firstname lastname email phone role gender profilePic status } }
 `;
 
+export const LIST_AUDIT_LOGS = gql`
+  query ListAuditLogs($filter: AuditLogFilterInput) {
+    listAuditLogs(filter: $filter) {
+      logs {
+        _id
+        action
+        resource
+        resourceId
+        details
+        ipAddress
+        userAgent
+        createdAt
+        user { _id firstname lastname phone role }
+      }
+      total
+      page
+      limit
+    }
+  }
+`;
+
+export const ACTIVE_SATISFACTION_SURVEY_TEMPLATE = gql`
+  query ActiveSatisfactionSurveyTemplate {
+    getActiveSatisfactionSurveyTemplate {
+      _id
+      title
+      description
+      currentVersion
+      questions {
+        key
+        label
+        category
+        order
+        active
+      }
+      versions {
+        version
+        title
+        validFrom
+        validTo
+        questions { key active }
+      }
+      archivedAt
+      updatedAt
+    }
+  }
+`;
+
 export const SEARCH_PATIENTS = gql`
   query SearchPatients($query: String!, $page: Int, $limit: Int) {
     searchPatients(query: $query, page: $page, limit: $limit) {
@@ -184,8 +232,8 @@ export const ICD_SEARCH = gql`
 `;
 
 export const MONTHLY_REPORT = gql`
-  query MonthlyReport($month: String!) {
-    monthlyReport(month: $month) {
+  query MonthlyReport($month: String, $dateFrom: Date, $dateTo: Date) {
+    monthlyReport(month: $month, dateFrom: $dateFrom, dateTo: $dateTo) {
       month
       completedAppointments
       completedVisits

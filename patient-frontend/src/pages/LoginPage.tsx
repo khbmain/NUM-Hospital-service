@@ -2,14 +2,17 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/common/ToastProvider';
-import { Mail, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Mail, Phone, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
+  const [mode, setMode] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { requestEmailOtp, loginWithEmailOtp } = useAuth();
+  const { requestEmailOtp, loginWithEmailOtp, loginWithPhonePassword } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -18,6 +21,13 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      if (mode === 'phone') {
+        await loginWithPhonePassword(phone, password);
+        toast('Амжилттай нэвтэрлээ.', 'success');
+        navigate('/');
+        return;
+      }
+
       if (!otpSent) {
         const message = await requestEmailOtp(email);
         setOtpSent(true);
@@ -74,10 +84,28 @@ export default function LoginPage() {
           </div>
 
           <h2 className="text-2xl font-display text-surface-900 mb-1">Нэвтрэх</h2>
-          <p className="text-surface-500 mb-6">МУИС-ийн имэйл хаягаараа OTP код авч нэвтэрнэ.</p>
+          <p className="text-surface-500 mb-6">Имэйл OTP эсвэл үзлэгийн дараа мессежээр ирсэн утасны нууц үгээр нэвтэрнэ.</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-100 p-1">
+              <button
+                type="button"
+                onClick={() => { setMode('email'); setOtpSent(false); setOtp(''); }}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${mode === 'email' ? 'bg-white text-brand-700 shadow-sm' : 'text-surface-500 hover:text-surface-800'}`}
+              >
+                Имэйл OTP
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode('phone'); setOtpSent(false); setOtp(''); }}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${mode === 'phone' ? 'bg-white text-brand-700 shadow-sm' : 'text-surface-500 hover:text-surface-800'}`}
+              >
+                Утас
+              </button>
+            </div>
+
+            {mode === 'email' ? (
+              <div>
               <label className="block text-sm font-medium text-surface-700 mb-1.5">
                 Имэйл хаяг
               </label>
@@ -94,8 +122,44 @@ export default function LoginPage() {
                 />
               </div>
             </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-surface-700 mb-1.5">
+                    Утас эсвэл имэйл
+                  </label>
+                  <div className="relative">
+                    <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-400" />
+                    <input
+                      type="text"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="99112233 эсвэл patient001@bulk-test.num.edu.mn"
+                      className="input-field pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-surface-700 mb-1.5">
+                    Нууц үг
+                  </label>
+                  <div className="relative">
+                    <ShieldCheck size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-400" />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Мессежээр ирсэн нууц үг"
+                      className="input-field pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
-            {otpSent && (
+            {mode === 'email' && otpSent && (
               <div>
                 <label className="block text-sm font-medium text-surface-700 mb-1.5">
                   OTP код
@@ -116,12 +180,14 @@ export default function LoginPage() {
             )}
 
             <div className="rounded-xl border border-brand-100 bg-brand-50 px-3 py-2 text-xs leading-5 text-brand-800">
-              {otpSent
+              {mode === 'phone'
+                ? 'Утсаар эсвэл имэйлээр бүртгэгдсэн өвчтөн нууц үгээрээ нэвтэрнэ.'
+                : otpSent
                 ? 'OTP ирэхгүй бол имэйл хаягаа зөв эсэхийг шалгаад солих эсвэл дахин илгээнэ үү. Алдаатай/байхгүй хаягт код хүрэхгүй.'
                 : 'OTP нь зөвхөн `@num.edu.mn` эсвэл `@stud.num.edu.mn` имэйлд илгээгдэнэ.'}
             </div>
 
-            {otpSent && (
+            {mode === 'email' && otpSent && (
               <button
                 type="button"
                 onClick={handleChangeEmail}
@@ -137,11 +203,11 @@ export default function LoginPage() {
               disabled={loading}
               className="btn-primary w-full"
             >
-              {loading ? (
+                  {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  {otpSent ? 'OTP баталгаажуулаад нэвтрэх' : 'OTP код авах'}
+                  {mode === 'phone' ? 'Нууц үгээр нэвтрэх' : otpSent ? 'OTP баталгаажуулаад нэвтрэх' : 'OTP код авах'}
                   <ArrowRight size={16} />
                 </>
               )}

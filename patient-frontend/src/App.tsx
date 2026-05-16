@@ -1,10 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { ApolloProvider } from '@apollo/client';
+import { useQuery } from '@apollo/client';
 import { client } from './graphql/client';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import PatientLayout from './components/layout/PatientLayout';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import { ToastProvider } from './components/common/ToastProvider';
+import { MY_SATISFACTION_SURVEY_REQUIREMENT } from './graphql/queries';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -17,12 +20,29 @@ import AppointmentBookPage from './pages/AppointmentBookPage';
 import VisitListPage from './pages/VisitListPage';
 import VisitDetailPage from './pages/VisitDetailPage';
 import PrescriptionsPage from './pages/PrescriptionsPage';
+import SatisfactionSurveyPage from './pages/SatisfactionSurveyPage';
+
+function SurveyGate({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const { data, loading } = useQuery(MY_SATISFACTION_SURVEY_REQUIREMENT);
+
+  if (loading) return <LoadingSpinner text="Ачааллаж байна..." />;
+  const requirement = data?.getMySatisfactionSurveyRequirement;
+  const isSurveyPage = location.pathname === '/survey';
+
+  if (requirement?.required && !isSurveyPage) {
+    const next = encodeURIComponent(`${location.pathname}${location.search}`);
+    return <Navigate to={`/survey?next=${next}`} replace />;
+  }
+
+  return <>{children}</>;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
   if (loading) return <LoadingSpinner text="Ачааллаж байна..." />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return <PatientLayout>{children}</PatientLayout>;
+  return <PatientLayout><SurveyGate>{children}</SurveyGate></PatientLayout>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -48,6 +68,7 @@ function AppRoutes() {
       <Route path="/visits" element={<ProtectedRoute><VisitListPage /></ProtectedRoute>} />
       <Route path="/visits/:id" element={<ProtectedRoute><VisitDetailPage /></ProtectedRoute>} />
       <Route path="/prescriptions" element={<ProtectedRoute><PrescriptionsPage /></ProtectedRoute>} />
+      <Route path="/survey" element={<ProtectedRoute><SatisfactionSurveyPage /></ProtectedRoute>} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

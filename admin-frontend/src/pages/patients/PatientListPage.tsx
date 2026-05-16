@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { useToast } from '../../components/common/ToastProvider';
+import EmailDomainInput from '../../components/common/EmailDomainInput';
 import { Search, Plus, X, UserPlus } from 'lucide-react';
 
 const CATEGORIES = [
@@ -27,6 +28,7 @@ export default function PatientListPage() {
     firstname: '',
     lastname: '',
     phone: '',
+    email: '',
     category: 'student',
     gender: 'male',
   });
@@ -42,13 +44,24 @@ export default function PatientListPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { data } = await createPatient({ variables: { input: formData } });
+      const { data } = await createPatient({
+        variables: {
+          input: {
+            ...formData,
+            firstname: formData.firstname.trim(),
+            lastname: formData.lastname.trim(),
+            phone: formData.phone.trim() || undefined,
+            email: formData.email.trim() || undefined,
+          },
+        },
+      });
       toast(`Өвчтөн бүртгэгдлээ: ${data.createPatient.registrationNumber}`, 'success');
       setShowForm(false);
       setFormData({
         firstname: '',
         lastname: '',
         phone: '',
+        email: '',
         category: 'student',
         gender: 'male',
       });
@@ -110,6 +123,11 @@ export default function PatientListPage() {
                 className="input-field"
               />
             </div>
+            <EmailDomainInput
+              label="Имэйл"
+              value={formData.email}
+              onChange={(email) => setFormData({ ...formData, email })}
+            />
             <div>
               <label className="mb-1 block text-xs font-medium text-surface-600">Ангилал *</label>
               <select

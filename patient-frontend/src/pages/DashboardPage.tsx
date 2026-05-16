@@ -14,6 +14,28 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 
+function getAppointmentOwner(appt: any) {
+  if (appt.doctor?.userId) {
+    return {
+      name: `${appt.doctor.userId.lastname?.charAt(0) || ''}.${appt.doctor.userId.firstname || 'Эмч'}`,
+      detail: appt.doctor.department?.name || appt.doctor.specialization || 'Эмч',
+    };
+  }
+  if (appt.assignedStaff?.userId) {
+    return {
+      name: `${appt.assignedStaff.userId.lastname?.charAt(0) || ''}.${appt.assignedStaff.userId.firstname || 'Ажилтан'}`,
+      detail: appt.assignedStaff.department?.name || appt.assignedStaff.specialization || 'Ажилтан',
+    };
+  }
+  if (appt.resource?.name) {
+    return {
+      name: appt.resource.name,
+      detail: appt.resource.type === 'device' ? 'Төхөөрөмж' : 'Нөөц',
+    };
+  }
+  return { name: appt.service?.name || 'Цагийн мэдээлэл', detail: '' };
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
 
@@ -95,7 +117,9 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {appointments.map((appt: any) => (
+            {appointments.map((appt: any) => {
+              const owner = getAppointmentOwner(appt);
+              return (
               <Link key={appt._id} to={`/appointments/${appt._id}`} className="card flex items-center gap-4 hover:shadow-md transition-shadow">
                 <div className="w-12 h-12 rounded-xl bg-brand-50 flex flex-col items-center justify-center flex-shrink-0">
                   <span className="text-xs font-medium text-brand-700">
@@ -108,20 +132,20 @@ export default function DashboardPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="font-medium text-surface-800 text-sm">
-                      {appt.doctor?.userId?.lastname?.charAt(0)}.{appt.doctor?.userId?.firstname}
+                      {owner.name}
                     </span>
                     <StatusBadge status={appt.status} />
                   </div>
                   <p className="text-xs text-surface-500 flex items-center gap-1">
                     <Clock size={12} />
-                    {appt.scheduledTime} · {appt.doctor?.department?.name || appt.doctor?.specialization}
+                    {appt.scheduledTime}{owner.detail && ` · ${owner.detail}`}
                   </p>
                   {appt.chiefComplaint && (
                     <p className="text-xs text-surface-400 mt-0.5 truncate">{appt.chiefComplaint}</p>
                   )}
                 </div>
               </Link>
-            ))}
+            )})}
           </div>
         )}
       </section>

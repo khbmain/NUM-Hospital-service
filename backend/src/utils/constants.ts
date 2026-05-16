@@ -1,4 +1,7 @@
 import dotenv from "dotenv";
+import path from "path";
+
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 dotenv.config();
 
 // Server
@@ -21,8 +24,9 @@ export const AWS_BUCKET_NAME = process.env.AWS_BUCKET_NAME;
 
 // Email
 export const NODEMAILER = {
-  user: process.env.EMAIL,
-  pass: process.env.EMAIL_PASSWORD,
+  user: process.env.EMAIL?.trim(),
+  pass: process.env.EMAIL_PASSWORD?.trim(),
+  from: process.env.EMAIL_FROM?.trim() || process.env.EMAIL?.trim(),
 };
 
 // SMS
@@ -63,9 +67,9 @@ export const OAUTH_STATE_SECRET =
 
 // Frontend URLs
 export const PATIENT_FRONTEND_URL =
-  process.env.PATIENT_FRONTEND_URL || "http://localhost:3000";
+  process.env.PATIENT_FRONTEND_URL || "http://202.131.1.77:3100";
 export const ADMIN_FRONTEND_URL =
-  process.env.ADMIN_FRONTEND_URL || "http://localhost:3001";
+  process.env.ADMIN_FRONTEND_URL || "http://202.131.1.77:3101";
 
 // Hospital enums
 export const ROLES = [

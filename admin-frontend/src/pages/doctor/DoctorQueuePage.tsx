@@ -8,7 +8,8 @@ import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import { useToast } from '../../components/common/ToastProvider';
-import { Stethoscope, Play, Clock, Search, UserPlus, CalendarDays, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import EmailDomainInput from '../../components/common/EmailDomainInput';
+import { Stethoscope, Play, Clock, Search, UserPlus, CalendarDays, ChevronLeft, ChevronRight, RotateCcw, Eye } from 'lucide-react';
 
 function toDateInputValue(date: Date) {
   const year = date.getFullYear();
@@ -342,6 +343,27 @@ export default function DoctorQueuePage() {
     }
   };
 
+  const handleViewCompletedExam = async (appointment: any) => {
+    setStartingId(appointment._id);
+    try {
+      const { data: visitData } = await createVisit({
+        variables: {
+          input: {
+            appointmentId: appointment._id,
+            patientId: appointment.patient._id,
+            chiefComplaint: appointment.chiefComplaint,
+          },
+        },
+      });
+
+      navigate(`/doctor/examine/${visitData.createVisit._id}`);
+    } catch (err: any) {
+      toast(err.message || 'Дууссан үзлэг нээхэд алдаа гарлаа.', 'error');
+    } finally {
+      setStartingId('');
+    }
+  };
+
   if (isInitialLoading) {
     return <LoadingSpinner text="Дараалал ачааллаж байна..." />;
   }
@@ -583,16 +605,13 @@ export default function DoctorQueuePage() {
                   className="input-field"
                 />
               </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-medium text-surface-600">И-мэйл</label>
-                <input
-                  type="email"
-                  value={walkInPatientForm.email}
-                  onChange={(event) => setWalkInPatientForm({ ...walkInPatientForm, email: event.target.value })}
-                  className="input-field"
-                  placeholder="name@example.com"
-                />
-              </div>
+              <EmailDomainInput
+                label="И-мэйл"
+                value={walkInPatientForm.email}
+                onChange={(email) => setWalkInPatientForm({ ...walkInPatientForm, email })}
+                className="md:col-span-2 xl:col-span-2"
+                labelClassName="mb-1 block text-[11px] font-medium text-surface-600"
+              />
               <div>
                 <label className="mb-1 block text-[11px] font-medium text-surface-600">Ангилал</label>
                 <select
@@ -673,6 +692,16 @@ export default function DoctorQueuePage() {
                     className="btn-secondary text-xs"
                   >
                     <Stethoscope size={13} /> {startingId === appointment._id ? 'Нээж байна...' : 'Үргэлжлүүлэх'}
+                  </button>
+                )}
+                {appointment.status === 'completed' && (
+                  <button
+                    type="button"
+                    onClick={() => handleViewCompletedExam(appointment)}
+                    disabled={startingId === appointment._id}
+                    className="btn-secondary text-xs"
+                  >
+                    <Eye size={13} /> {startingId === appointment._id ? 'Нээж байна...' : 'Харах'}
                   </button>
                 )}
               </div>
