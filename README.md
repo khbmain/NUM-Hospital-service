@@ -15,6 +15,7 @@ Project тус бүрийн нарийвчилсан setup, env, script, impleme
 - [Patient Frontend README](./patient-frontend/README.md)
 - [Хэрэглэгчийн гарын авлага](./docs/USER_MANUAL.md)
 - [Word хэрэглэгчийн гарын авлага](./docs/NUM-Hospital-Хэрэглэгчийн-гарын-авлага.docx)
+- [Word user manual - ASCII file name](./docs/NUM-Hospital-User-Manual.docx)
 
 ## Гол боломжууд
 
